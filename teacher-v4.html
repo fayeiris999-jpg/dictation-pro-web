@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 教师端</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'apple-gray': {
+              50: '#F9F9FB', 100: '#F2F2F5', 200: '#E5E5EA', 300: '#D1D1D6',
+              400: '#AEAEB2', 500: '#8E8E93', 600: '#636366', 700: '#48484A',
+              800: '#3A3A3C', 900: '#1C1C1E',
+            },
+            'apple-blue': {
+              50: '#E8F4FD', 100: '#D0E8FA', 200: '#A5D4F5', 300: '#6BB9EE',
+              400: '#2F9AE5', 500: '#007AFF', 600: '#0063D1', 700: '#0051AD',
+              800: '#00448E', 900: '#003A73',
+            },
+            'apple-green': {
+              50: '#E8F9ED', 100: '#D0F3DA', 200: '#A5E7B8', 300: '#6BD68F',
+              400: '#2FC263', 500: '#34C759', 600: '#28A745', 700: '#208C3A',
+              800: '#1A7230', 900: '#155C26',
+            },
+            'apple-purple': {
+              50: '#F5F3FF', 100: '#EDE9FE', 200: '#DDD6FE', 300: '#C4B5FD',
+              400: '#A78BFA', 500: '#8B5CF6', 600: '#7C3AED', 700: '#6D28D9',
+              800: '#5B21B6', 900: '#4C1D95',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          borderRadius: {
+            'apple': '12px',
+            'apple-lg': '20px',
+            'apple-xl': '28px',
+          },
+          boxShadow: {
+            'apple-sm': '0 1px 2px rgba(0, 0, 0, 0.04)',
+            'apple': '0 2px 8px rgba(0, 0, 0, 0.08)',
+            'apple-md': '0 4px 16px rgba(0, 0, 0, 0.12)',
+            'apple-lg': '0 8px 32px rgba(0, 0, 0, 0.16)',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+            'scale-in': 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            scaleIn: { '0%': { opacity: '0', transform: 'scale(0.96)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #F5F5F7 0%, #E8E8ED 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #007AFF 0%, #0063D1 100%);
+      transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    .btn-primary:hover::before { left: 100%; }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4);
+    }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-success {
+      background: linear-gradient(135deg, #34C759 0%, #28A745 100%);
+      transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .btn-success:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 24px rgba(52, 199, 89, 0.5), 0 8px 24px rgba(52, 199, 89, 0.3);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+    .input-field {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #007AFF;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
+    }
+    .upload-area {
+      border: 2px dashed rgba(0, 0, 0, 0.1);
+      transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .upload-area:hover {
+      border-color: #007AFF;
+      background: rgba(0, 122, 255, 0.04);
+    }
+    .upload-area.dragover {
+      border-color: #007AFF;
+      background: rgba(0, 122, 255, 0.08);
+    }
+    .table-row { transition: all 0.2s ease; }
+    .table-row:hover { background: rgba(0, 122, 255, 0.04); }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; }
+      .card { box-shadow: none; border: 1px solid #ddd; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // ========== 导航栏 ==========
+    function Navbar({ currentPage, setCurrentPage, dictationType, setDictationType }) {
+      return (
+        <nav className="glass-nav sticky top-0 z-40 no-print">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-14">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-apple-blue-500 to-apple-blue-600 flex items-center justify-center shadow-apple">
+                  <span className="text-xl">👨‍🏫</span>
+                </div>
+                <div>
+                  <h1 className="text-base font-semibold text-apple-gray-900">DictationPro</h1>
+                  <p className="text-xs text-apple-gray-500 -mt-0.5">教师端</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={dictationType}
+                  onChange={(e) => {
+                    setDictationType(e.target.value);
+                    setTestType(e.target.value === 'ielts' ? 'IELTS' : 'TOEFL');
+                  }}
+                  className="input-field p-2 rounded-apple text-xs font-medium mr-2"
+                >
+                  <option value="standard">普通听写</option>
+                  <option value="ielts">雅思同义替换</option>
+                </select>
+                <button
+                  onClick={() => setCurrentPage('dashboard')}
+                  className={`px-4 py-2 rounded-apple text-sm font-medium transition-colors ${
+                    currentPage === 'dashboard' 
+                      ? 'bg-apple-blue-100 text-apple-blue-700' 
+                      : 'text-apple-gray-600 hover:bg-apple-gray-100'
+                  }`}
+                >
+                  📊 成绩
+                </button>
+                <button
+                  onClick={() => setCurrentPage('create')}
+                  className={`px-4 py-2 rounded-apple text-sm font-medium transition-colors ${
+                    currentPage === 'create' 
+                      ? 'bg-apple-blue-100 text-apple-blue-700' 
+                      : 'text-apple-gray-600 hover:bg-apple-gray-100'
+                  }`}
+                >
+                  ➕ 创建
+                </button>
+                <button
+                  onClick={() => window.open(`student-v4.html?type=${dictationType}`, '_blank')}
+                  className="btn-primary px-5 py-2 rounded-apple text-white text-sm font-medium ml-2"
+                >
+                  🚀 学生端
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+      );
+    }
+    
+    // ========== 图片上传 + OCR 组件 ==========
+    function ImageUpload({ onExtract, dictationType }) {
+      const [isDragging, setIsDragging] = useState(false);
+      const [imagePreview, setImagePreview] = useState(null);
+      const [processing, setProcessing] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [extractedWords, setExtractedWords] = useState([]);
+      const [wordCount, setWordCount] = useState(0);
+      const [debugInfo, setDebugInfo] = useState('');
+      
+      const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const files = Array.from(e.dataTransfer.files);
+        handleFiles(files);
+      };
+      
+      const handleFiles = (fileList) => {
+        const imageFile = fileList.find(f => f.type.startsWith('image/'));
+        if (!imageFile) {
+          alert('⚠️ 请上传表格截图（PNG/JPG）');
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target.result);
+          processImage(e.target.result);
+        };
+        reader.readAsDataURL(imageFile);
+      };
+      
+      // 智能解析 OCR 文本为表格（针对雅思同义替换表格优化）
+      const parseOCRText = (text) => {
+        const lines = text.split('\n').filter(line => line.trim());
+        const words = [];
+        
+        // 表格结构：左边是"替换词"（英文 + 词性 + 中文），右边是"同义替换词"（英文短语）
+        // 例如：age (n.) 年龄    |    how old
+        
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.length < 3) continue;
+          
+          // 跳过标题行
+          if (trimmed.includes('替换词') || trimmed.includes('词性') || trimmed.includes('同义')) {
+            continue;
+          }
+          
+          let english = '';
+          let chinese = '';
+          let synonym = '';
+          
+          // 方法 1：尝试按大空格/制表符分割左右两栏
+          const twoColumnMatch = trimmed.split(/\s{4,}|\t+/);
+          
+          if (twoColumnMatch.length >= 2) {
+            const leftCol = twoColumnMatch[0].trim();  // 替换词（英文 + 词性 + 中文）
+            const rightCol = twoColumnMatch.slice(1).join(' ').trim();  // 同义替换词
+            
+            // 解析左栏：提取英文、词性、中文
+            // 格式：age (n.) 年龄 或 age 年龄
+            const leftMatch = leftCol.match(/^([a-zA-Z]+)\s*(?:\([a-z.]+\))?\s*([\u4e00-\u9fa5]+)/);
+            if (leftMatch) {
+              english = leftMatch[1];
+              chinese = leftMatch[2];
+            } else {
+              // 尝试其他格式
+              const enMatch = leftCol.match(/^([a-zA-Z]+)/);
+              if (enMatch) {
+                english = enMatch[1];
+                const zhMatch = leftCol.match(/[\u4e00-\u9fa5]+/);
+                if (zhMatch) {
+                  chinese = zhMatch[0];
+                }
+              }
+            }
+            
+            // 解析右栏：同义替换词（纯英文短语）
+            if (rightCol) {
+              synonym = rightCol.replace(/[()]/g, '').trim();
+            }
+          } else {
+            // 方法 2：没有明显分栏，尝试按顺序解析
+            // 提取第一个英文单词
+            const enMatch = trimmed.match(/^([a-zA-Z]+)/);
+            if (enMatch) {
+              english = enMatch[1];
+            }
+            
+            // 提取中文
+            const zhMatch = trimmed.match(/[\u4e00-\u9fa5]+/);
+            if (zhMatch) {
+              chinese = zhMatch[0];
+            }
+            
+            // 提取同义词（行末的英文短语）
+            const parts = trimmed.split(/\s+/);
+            const lastPart = parts[parts.length - 1];
+            if (/^[a-zA-Z]+$/.test(lastPart) && lastPart !== english) {
+              synonym = lastPart;
+            }
+          }
+          
+          if (english && chinese) {
+            words.push({
+              english: english,
+              chinese: chinese,
+              synonym: synonym
+            });
+          }
+        }
+        
+        // 去重
+        const seen = new Set();
+        return words.filter(w => {
+          const key = w.english.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
+      
+      const processImage = async (imageDataUrl) => {
+        setProcessing(true);
+        setProgress(0);
+        setWordCount(0);
+        setDebugInfo('正在加载 OCR 引擎...');
+        
+        try {
+          // 使用 Tesseract.js 进行中英文识别
+          const { data: { text } } = await Tesseract.recognize(
+            imageDataUrl,
+            'eng+chi_sim',
+            {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  setProgress(Math.round(m.progress * 100));
+                  setDebugInfo(`识别中... ${Math.round(m.progress * 100)}%`);
+                } else {
+                  setDebugInfo(m.status);
+                }
+              }
+            }
+          );
+          
+          setDebugInfo('正在解析表格...');
+          
+          console.log('OCR 原始结果:', text);
+          
+          // 智能解析
+          const parsedWords = parseOCRText(text);
+          
+          console.log('解析后的词表:', parsedWords);
+          
+          setProcessing(false);
+          setExtractedWords(parsedWords);
+          setWordCount(parsedWords.length);
+          onExtract(parsedWords);
+          
+          if (parsedWords.length === 0) {
+            setDebugInfo('❌ 未识别到单词，请检查图片');
+          } else {
+            setDebugInfo(`✅ 识别成功：${parsedWords.length} 个单词`);
+          }
+        } catch (error) {
+          console.error('OCR 失败:', error);
+          setProcessing(false);
+          setDebugInfo('❌ 识别失败：' + error.message);
+          alert('OCR 识别失败：' + error.message);
+        }
+      };
+      
+      return (
+        <div className="card p-6 animate-fade-in">
+          <h3 className="text-base font-semibold text-apple-gray-900 mb-4">
+            📸 OCR 智能识别
+          </h3>
+          
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`upload-area rounded-apple-xl p-8 text-center cursor-pointer mb-4 ${
+              isDragging ? 'dragover' : ''
+            }`}
+            onClick={() => document.getElementById('fileInput').click()}
+          >
+            <input
+              id="fileInput"
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFiles(Array.from(e.target.files))}
+              className="hidden"
+            />
+            
+            {processing ? (
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 border-4 border-apple-blue-200 border-t-apple-blue-500 rounded-full animate-spin mb-3"></div>
+                <p className="text-sm font-medium text-apple-gray-700 mb-1">{debugInfo}</p>
+                {progress > 0 && (
+                  <div className="w-48 h-2 bg-apple-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-apple-blue-500 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : imagePreview ? (
+              <div className="flex flex-col items-center">
+                <img src={imagePreview} alt="预览" className="h-32 rounded-apple mb-3 object-cover" />
+                {wordCount > 0 ? (
+                  <>
+                    <p className="text-sm font-semibold text-apple-green-700">✅ {debugInfo}</p>
+                    <p className="text-xs text-apple-gray-500 mt-1">点击更换图片</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-apple-gray-900">已上传图片</p>
+                    <p className="text-xs text-apple-gray-500 mt-1">点击重新识别</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center">
+                <span className="text-4xl mb-3">📤</span>
+                <p className="text-sm font-medium text-apple-gray-900">拖拽表格截图到此处</p>
+                <p className="text-xs text-apple-gray-500 mt-1">支持 PNG、JPG 格式</p>
+              </div>
+            )}
+          </div>
+          
+          {wordCount > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-apple-gray-600 uppercase tracking-wide">
+                  识别结果（可编辑）
+                </label>
+                <span className="text-xs text-apple-green-700 font-medium">✅ {wordCount} 个单词</span>
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto p-2 bg-apple-gray-50 rounded-apple-lg border border-apple-gray-200">
+                {extractedWords.map((word, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-apple border border-apple-gray-100">
+                    <div className="col-span-4">
+                      <input
+                        type="text"
+                        value={word.english}
+                        onChange={(e) => {
+                          const newWords = [...extractedWords];
+                          newWords[idx].english = e.target.value;
+                          setExtractedWords(newWords);
+                          onExtract(newWords);
+                        }}
+                        className="input-field w-full p-1.5 rounded-apple text-sm font-mono"
+                        placeholder="英文"
+                      />
+                    </div>
+                    <div className="col-span-4">
+                      <input
+                        type="text"
+                        value={word.chinese}
+                        onChange={(e) => {
+                          const newWords = [...extractedWords];
+                          newWords[idx].chinese = e.target.value;
+                          setExtractedWords(newWords);
+                          onExtract(newWords);
+                        }}
+                        className="input-field w-full p-1.5 rounded-apple text-sm"
+                        placeholder="中文"
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <input
+                        type="text"
+                        value={word.synonym}
+                        onChange={(e) => {
+                          const newWords = [...extractedWords];
+                          newWords[idx].synonym = e.target.value;
+                          setExtractedWords(newWords);
+                          onExtract(newWords);
+                        }}
+                        className="input-field w-full p-1.5 rounded-apple text-sm text-apple-purple-700"
+                        placeholder="同义词"
+                      />
+                    </div>
+                    <div className="col-span-1 text-right">
+                      <button
+                        onClick={() => {
+                          const newWords = extractedWords.filter((_, i) => i !== idx);
+                          setExtractedWords(newWords);
+                          setWordCount(newWords.length);
+                          onExtract(newWords);
+                        }}
+                        className="text-apple-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {dictationType === 'ielts' && (
+            <div className="mt-4 p-3 rounded-apple-lg bg-apple-blue-50 border border-apple-blue-200">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">💡</span>
+                <div className="text-xs text-apple-blue-800">
+                  <p className="font-medium mb-1">识别说明</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-apple-blue-700">
+                    <li>系统会自动识别表格的三列：英文、中文、同义词</li>
+                    <li>识别完成后可以在上方编辑修正</li>
+                    <li>点击图片可以重新识别</li>
+                    <li>建议上传清晰的表格截图（白底黑字最佳）</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // ========== 三列文本编辑器（雅思专用） ==========
+    function IELTSEditor({ words, onChange }) {
+      const handleWordChange = (index, field, value) => {
+        const newWords = [...words];
+        newWords[index][field] = value;
+        onChange(newWords);
+      };
+      
+      const addWord = () => {
+        onChange([...words, { english: '', chinese: '', synonym: '' }]);
+      };
+      
+      const removeWord = (index) => {
+        onChange(words.filter((_, i) => i !== index));
+      };
+      
+      return (
+        <div className="card p-6 animate-fade-in">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base font-semibold text-apple-gray-900">✏️ 编辑词表</h3>
+            <button
+              onClick={addWord}
+              className="btn-secondary px-3 py-1.5 rounded-apple text-xs font-medium"
+            >
+              + 添加单词
+            </button>
+          </div>
+          
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="grid grid-cols-12 gap-2 text-xs font-medium text-apple-gray-600 uppercase tracking-wide px-2">
+              <div className="col-span-4">英文</div>
+              <div className="col-span-4">中文</div>
+              <div className="col-span-3">同义替换</div>
+              <div className="col-span-1"></div>
+            </div>
+            
+            {words.map((word, index) => (
+              <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-4">
+                  <input
+                    type="text"
+                    value={word.english}
+                    onChange={(e) => handleWordChange(index, 'english', e.target.value)}
+                    placeholder="英文单词"
+                    className="input-field w-full p-2 rounded-apple text-sm font-mono"
+                  />
+                </div>
+                <div className="col-span-4">
+                  <input
+                    type="text"
+                    value={word.chinese}
+                    onChange={(e) => handleWordChange(index, 'chinese', e.target.value)}
+                    placeholder="中文释义"
+                    className="input-field w-full p-2 rounded-apple text-sm"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <input
+                    type="text"
+                    value={word.synonym}
+                    onChange={(e) => handleWordChange(index, 'synonym', e.target.value)}
+                    placeholder="同义词"
+                    className="input-field w-full p-2 rounded-apple text-sm font-mono text-apple-purple-700"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <button
+                    onClick={() => removeWord(index)}
+                    className="w-8 h-8 flex items-center justify-center rounded-apple text-apple-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-3 flex items-center gap-2 text-xs text-apple-gray-500">
+            <span>ℹ️</span>
+            <span>共 <strong>{words.length}</strong> 个单词</span>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 普通文本编辑器 ==========
+    function TextEditor({ text, onChange }) {
+      return (
+        <div className="card p-6 animate-fade-in">
+          <h3 className="text-base font-semibold text-apple-gray-900 mb-4">✏️ 编辑听写内容</h3>
+          <textarea
+            value={text}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="每行一个单词和释义，用空格分隔&#10;例如：fungi 真菌"
+            className="input-field w-full p-4 rounded-apple-lg text-sm font-mono min-h-[240px] resize-y"
+          />
+          <div className="mt-3 flex items-center gap-2 text-xs text-apple-gray-500">
+            <span>ℹ️</span>
+            <span>格式：英文 + 空格 + 中文释义</span>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 音频设置组件 ==========
+    function AudioSettings({ settings, onChange }) {
+      const voices = [
+        { name: '英语女声（美音）', voice: 'en-US-JennyNeural' },
+        { name: '英语男声（美音）', voice: 'en-US-GuyNeural' },
+        { name: '英语女声（英音）', voice: 'en-GB-SoniaNeural' },
+        { name: '英语男声（英音）', voice: 'en-GB-RyanNeural' },
+      ];
+      
+      return (
+        <div className="card p-6 animate-fade-in">
+          <h3 className="text-base font-semibold text-apple-gray-900 mb-4">🎧 音频设置</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 mb-2 uppercase tracking-wide">发音人</label>
+              <select
+                value={settings.voice}
+                onChange={(e) => onChange({ ...settings, voice: e.target.value })}
+                className="input-field w-full p-3 rounded-apple text-sm"
+              >
+                {voices.map(v => (
+                  <option key={v.voice} value={v.voice}>{v.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-apple-gray-600 mb-2 uppercase tracking-wide">语速</label>
+                <select
+                  value={settings.speed}
+                  onChange={(e) => onChange({ ...settings, speed: Number(e.target.value) })}
+                  className="input-field w-full p-3 rounded-apple text-sm"
+                >
+                  <option value="0.8">慢 (0.8x)</option>
+                  <option value="0.9">正常 (0.9x)</option>
+                  <option value="1.0">快 (1.0x)</option>
+                  <option value="1.1">很快 (1.1x)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-apple-gray-600 mb-2 uppercase tracking-wide">间隔</label>
+                <select
+                  value={settings.interval}
+                  onChange={(e) => onChange({ ...settings, interval: Number(e.target.value) })}
+                  className="input-field w-full p-3 rounded-apple text-sm"
+                >
+                  <option value="2">2 秒</option>
+                  <option value="3">3 秒</option>
+                  <option value="5">5 秒</option>
+                  <option value="8">8 秒</option>
+                  <option value="10">10 秒</option>
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-apple-gray-600 mb-2 uppercase tracking-wide">重复次数</label>
+              <select
+                value={settings.repeats}
+                onChange={(e) => onChange({ ...settings, repeats: Number(e.target.value) })}
+                className="input-field w-full p-3 rounded-apple text-sm"
+              >
+                <option value="1">1 遍</option>
+                <option value="2">2 遍</option>
+                <option value="3">3 遍</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 创建听写页面 ==========
+    function CreateDictation({ dictationType, onSave }) {
+      const [text, setText] = useState('');
+      const [words, setWords] = useState([]);
+      const [audioSettings, setAudioSettings] = useState({
+        voice: 'en-US-JennyNeural',
+        speed: 0.9,
+        interval: 3,
+        repeats: 2
+      });
+      const [dictationTitle, setDictationTitle] = useState('');
+      
+      // 级联选择
+      const [grade, setGrade] = useState('25');
+      const [program, setProgram] = useState('IB');
+      const [testType, setTestType] = useState('IELTS');
+      const [skill, setSkill] = useState('Listening');
+      
+      // 同步听写类型和考试类型
+      useEffect(() => {
+        if (dictationType === 'ielts') {
+          setTestType('IELTS');
+        } else if (dictationType === 'standard') {
+          setTestType('TOEFL');
+        }
+      }, [dictationType]);
+      
+      // 自动生成班级代码
+      const classCode = `${grade}_${program}_${testType}_${skill}`;
+      const classLabel = `${grade}级 ${program} ${testType} ${skill === 'Listening' ? '听力' : skill === 'Reading' ? '阅读' : skill === 'Speaking' ? '口语' : '写作'}`;
+      
+      const parseWords = (text) => {
+        return text.split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const parts = line.trim().split(/\s+/);
+            return {
+              english: parts[0] || '',
+              chinese: parts[1] || '',
+              synonym: parts[2] || ''
+            };
+          })
+          .filter(w => w.english);
+      };
+      
+      const handleExtract = (extractedWords) => {
+        // OCR 识别结果直接更新词表
+        if (extractedWords && extractedWords.length > 0) {
+          setWords(extractedWords);
+        }
+      };
+      
+      const handleSave = () => {
+        if (words.length === 0) {
+          alert('⚠️ 请输入听写内容');
+          return;
+        }
+        
+        if (!dictationTitle.trim()) {
+          alert('⚠️ 请输入听写标题');
+          return;
+        }
+        
+        const dictation = {
+          id: Date.now().toString(),
+          title: dictationTitle,
+          type: dictationType,
+          words,
+          audioSettings,
+          classCode: classCode,
+          classLabel: classLabel,
+          status: 'active',
+          createdAt: new Date().toISOString()
+        };
+        
+        const saved = JSON.parse(localStorage.getItem('available_dictations') || '[]');
+        saved.push(dictation);
+        localStorage.setItem('available_dictations', JSON.stringify(saved));
+        
+        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        
+        alert(`✅ 听写任务已创建！\n\n班级：${classLabel}\n共 ${words.length} 个单词`);
+        setText('');
+        setWords([]);
+        setDictationTitle('');
+      };
+      
+      return (
+        <div className="min-h-screen p-6 animate-fade-in">
+          <div className="max-w-5xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-apple-gray-900 mb-1">
+                {dictationType === 'ielts' ? '创建雅思同义替换听写' : '创建普通听写'}
+              </h2>
+              <p className="text-apple-gray-500 text-sm">
+                {dictationType === 'ielts' ? '上传表格截图或手动输入同义替换词表' : '上传文件或手动输入听写内容'}
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <ImageUpload onExtract={handleExtract} dictationType={dictationType} />
+                <AudioSettings settings={audioSettings} onChange={setAudioSettings} />
+              </div>
+              
+              <div className="space-y-6">
+                <div className="card p-6">
+                  <label className="block text-xs font-medium text-apple-gray-600 mb-2 uppercase tracking-wide">听写标题</label>
+                  <input
+                    type="text"
+                    value={dictationTitle}
+                    onChange={(e) => setDictationTitle(e.target.value)}
+                    placeholder={dictationType === 'ielts' ? '例如：雅思听力同义替换 Test 5 Part 1' : '例如：Unit 3 生态系统的能量流动'}
+                    className="input-field w-full p-3 rounded-apple text-base"
+                  />
+                </div>
+                
+                <div className="card p-6">
+                  <label className="block text-xs font-medium text-apple-gray-600 mb-3 uppercase tracking-wide">布置班级</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-apple-gray-500 mb-1.5">年级</label>
+                      <select
+                        value={grade}
+                        onChange={(e) => setGrade(e.target.value)}
+                        className="input-field w-full p-2.5 rounded-apple text-sm font-medium"
+                      >
+                        <option value="24">24 级</option>
+                        <option value="25">25 级</option>
+                        <option value="26">26 级</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-apple-gray-500 mb-1.5">课程</label>
+                      <select
+                        value={program}
+                        onChange={(e) => setProgram(e.target.value)}
+                        className="input-field w-full p-2.5 rounded-apple text-sm font-medium"
+                      >
+                        <option value="AP">AP</option>
+                        <option value="IB">IB</option>
+                        <option value="A-Level">A-Level</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-apple-gray-500 mb-1.5">考试</label>
+                      <select
+                        value={testType}
+                        onChange={(e) => setTestType(e.target.value)}
+                        className="input-field w-full p-2.5 rounded-apple text-sm font-medium"
+                      >
+                        <option value="TOEFL">托福</option>
+                        <option value="IELTS">雅思</option>
+                        <option value="SAT">SAT</option>
+                        <option value="General">通用</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-apple-gray-500 mb-1.5">技能</label>
+                      <select
+                        value={skill}
+                        onChange={(e) => setSkill(e.target.value)}
+                        className="input-field w-full p-2.5 rounded-apple text-sm font-medium"
+                      >
+                        <option value="Listening">听力</option>
+                        <option value="Reading">阅读</option>
+                        <option value="Speaking">口语</option>
+                        <option value="Writing">写作</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-apple-gray-500">
+                    <span>📍</span>
+                    <span>当前选择：<strong className="text-apple-gray-700">{classLabel}</strong></span>
+                  </div>
+                </div>
+                
+                {dictationType === 'ielts' ? (
+                  <IELTSEditor words={words} onChange={setWords} />
+                ) : (
+                  <TextEditor text={text} onChange={setText} />
+                )}
+                
+                {words.length > 0 && (
+                  <div className="card p-4 bg-apple-green-50 border-apple-green-200">
+                    <div className="flex items-center gap-2 text-sm text-apple-green-800">
+                      <span>✅</span>
+                      <span>已准备 <strong>{words.length}</strong> 个单词</span>
+                    </div>
+                  </div>
+                )}
+                
+                <button
+                  onClick={handleSave}
+                  className="btn-success w-full py-4 rounded-apple-lg text-white font-medium text-base shadow-apple-md"
+                >
+                  💾 保存听写任务
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 成绩管理页面 ==========
+    function Dashboard({ dictations, results, setResults, dictationType }) {
+      const [selectedClass, setSelectedClass] = useState('all');
+      const [sortBy, setSortBy] = useState('name');
+      
+      useEffect(() => {
+        const savedResults = JSON.parse(localStorage.getItem('dictation_results') || '[]');
+        setResults(savedResults);
+      }, []);
+      
+      const classCodes = [...new Set(results.map(r => r.classInfo))];
+      
+      const filteredResults = results
+        .filter(r => selectedClass === 'all' || r.classInfo === selectedClass)
+        .filter(r => !dictationType || r.dictationType === dictationType)
+        .sort((a, b) => {
+          if (sortBy === 'name') return a.name.localeCompare(b.name, 'zh-CN');
+          if (sortBy === 'score') return b.score - a.score;
+          if (sortBy === 'date') return new Date(b.date) - new Date(a.date);
+          return 0;
+        });
+      
+      const stats = {
+        total: filteredResults.length,
+        avgScore: filteredResults.length > 0 
+          ? (filteredResults.reduce((sum, r) => sum + r.score, 0) / filteredResults.length).toFixed(1)
+          : 0,
+        highest: filteredResults.length > 0 ? Math.max(...filteredResults.map(r => r.score)) : 0,
+        passRate: filteredResults.length > 0
+          ? (filteredResults.filter(r => r.score >= 70).length / filteredResults.length * 100).toFixed(1)
+          : 0
+      };
+      
+      return (
+        <div className="min-h-screen p-6 animate-fade-in">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-apple-gray-900 mb-1">成绩管理</h2>
+              <p className="text-apple-gray-500 text-sm">查看和分析学生听写成绩</p>
+            </div>
+            
+            <div className="grid md:grid-cols-4 gap-4 mb-6">
+              <div className="card p-5">
+                <div className="text-3xl font-bold text-apple-blue-600 tabular-nums">{stats.total}</div>
+                <div className="text-apple-gray-600 text-sm mt-1">总人数</div>
+              </div>
+              <div className="card p-5">
+                <div className="text-3xl font-bold text-apple-blue-600 tabular-nums">{stats.avgScore}</div>
+                <div className="text-apple-gray-600 text-sm mt-1">平均分</div>
+              </div>
+              <div className="card p-5">
+                <div className="text-3xl font-bold text-apple-green-600 tabular-nums">{stats.highest}</div>
+                <div className="text-apple-gray-600 text-sm mt-1">最高分</div>
+              </div>
+              <div className="card p-5">
+                <div className="text-3xl font-bold text-apple-green-600 tabular-nums">{stats.passRate}%</div>
+                <div className="text-apple-gray-600 text-sm mt-1">及格率</div>
+              </div>
+            </div>
+            
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-apple-gray-50 border-b border-apple-gray-200">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">姓名</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">类型</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">班级</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">分数</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">得分</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-apple-gray-600 uppercase tracking-wide">日期</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-apple-gray-100">
+                    {filteredResults.map((result, i) => (
+                      <tr key={i} className="table-row">
+                        <td className="px-5 py-4 text-sm font-medium text-apple-gray-900">{result.name}</td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-apple text-xs font-medium ${
+                            result.dictationType === 'ielts' 
+                              ? 'bg-apple-purple-100 text-apple-purple-800' 
+                              : 'bg-apple-gray-100 text-apple-gray-800'
+                          }`}>
+                            {result.dictationType === 'ielts' ? '📝 雅思' : '📖 普通'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-apple-gray-600">{result.classInfo}</td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-apple text-xs font-medium tabular-nums ${
+                            result.score >= 90 ? 'bg-apple-green-100 text-apple-green-800' :
+                            result.score >= 70 ? 'bg-apple-blue-100 text-apple-blue-800' :
+                            'bg-apple-gray-100 text-apple-gray-800'
+                          }`}>
+                            {result.score}%
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-apple-gray-600 tabular-nums">
+                          {result.earnedPoints || result.correct} / {result.totalPoints || (result.total * 2)}
+                        </td>
+                        <td className="px-5 py-4 text-sm text-apple-gray-500 tabular-nums">{result.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {filteredResults.length === 0 && (
+                <div className="text-center py-12">
+                  <span className="text-4xl mb-3 block">📊</span>
+                  <p className="text-apple-gray-600 text-sm">暂无成绩数据</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 主应用 ==========
+    function App() {
+      const [currentPage, setCurrentPage] = useState('dashboard');
+      const [dictationType, setDictationType] = useState('standard');
+      const [dictations, setDictations] = useState([]);
+      const [results, setResults] = useState([]);
+      
+      return (
+        <div>
+          <Navbar 
+            currentPage={currentPage} 
+            setCurrentPage={setCurrentPage}
+            dictationType={dictationType}
+            setDictationType={setDictationType}
+          />
+          {currentPage === 'dashboard' && (
+            <Dashboard 
+              dictations={dictations} 
+              results={results} 
+              setResults={setResults}
+              dictationType={dictationType}
+            />
+          )}
+          {currentPage === 'create' && (
+            <CreateDictation 
+              dictationType={dictationType}
+              onSave={() => {}} 
+            />
+          )}
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 智能听写系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      text-align: center;
+      background: rgba(255,255,255,0.95);
+      padding: 3rem;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 500px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #1a1a2e;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+    }
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .link-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.25rem;
+      background: #f8f9fa;
+      border-radius: 16px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+    .link-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .link-card.teacher:hover {
+      border-color: #007AFF;
+      background: #E8F4FD;
+    }
+    .link-card.student:hover {
+      border-color: #34C759;
+      background: #E8F9ED;
+    }
+    .icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .teacher .icon { background: #007AFF; }
+    .student .icon { background: #34C759; }
+    .link-info {
+      text-align: left;
+    }
+    .link-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+    .link-desc {
+      font-size: 0.875rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+    .arrow {
+      margin-left: auto;
+      color: #999;
+      font-size: 1.25rem;
+    }
+    .footer {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #eee;
+      color: #999;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📝 DictationPro</h1>
+    <p class="subtitle">智能听写系统</p>
+    
+    <div class="links">
+      <a href="/teacher-v4.html" class="link-card teacher">
+        <div class="icon">👨‍🏫</div>
+        <div class="link-info">
+          <div class="link-title">教师端</div>
+          <div class="link-desc">创建听写 · 查看成绩 · 班级管理</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+      
+      <a href="/student-v4.html" class="link-card student">
+        <div class="icon">🎓</div>
+        <div class="link-info">
+          <div class="link-title">学生端</div>
+          <div class="link-desc">参加听写 · 查看成绩 · 错题回顾</div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+    
+    <div class="footer">
+      DictationPro v4.0 · Powered by Vercel
+    </div>
+  </div>
+  
+  <script>
+    // 自动重定向（可选）
+    // window.location.href = '/teacher-v4.html';
+  </script>
+</body>
+</html>
