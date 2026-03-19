@@ -1,0 +1,87 @@
+[
+  {
+    "id": "dict_6b1b38929e309ac9",
+    "title": "Unit 1 Vocabulary Warm-up",
+    "class_name": "25 级 IB IELTS 听力",
+    "teacher_id": "user_83edd6bf6adacbe8",
+    "words": [
+      {
+        "english": "apple",
+        "chinese": "苹果",
+        "hint": ""
+      },
+      {
+        "english": "banana",
+        "chinese": "香蕉",
+        "hint": ""
+      },
+      {
+        "english": "orange",
+        "chinese": "橙子",
+        "hint": ""
+      },
+      {
+        "english": "grape",
+        "chinese": "葡萄",
+        "hint": ""
+      },
+      {
+        "english": "strawberry",
+        "chinese": "草莓",
+        "hint": ""
+      },
+      {
+        "english": "necessary",
+        "chinese": "必要的",
+        "hint": ""
+      },
+      {
+        "english": "accommodate",
+        "chinese": "容纳",
+        "hint": ""
+      },
+      {
+        "english": "embarrass",
+        "chinese": "尴尬",
+        "hint": ""
+      },
+      {
+        "english": "committee",
+        "chinese": "委员会",
+        "hint": ""
+      },
+      {
+        "english": "recommend",
+        "chinese": "推荐",
+        "hint": ""
+      }
+    ],
+    "word_count": 10,
+    "audio_url": null,
+    "duration": 100,
+    "status": "active",
+    "created_at": "2026-03-17T18:58:13.879471",
+    "student_attempts": [
+      {
+        "student_id": "user_f58746d4bf3d795f",
+        "username": "demo_student",
+        "answers": [
+          "apple",
+          "bananna",
+          "orrange",
+          "grape",
+          "strawbery",
+          "necessary",
+          "acommodate",
+          "embarras",
+          "committee",
+          "recommand"
+        ],
+        "score": 100,
+        "correct_rate": 100.0,
+        "mistakes": [],
+        "submitted_at": "2026-03-17T18:58:31.727494"
+      }
+    ]
+  }
+]

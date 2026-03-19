@@ -1,0 +1,22 @@
+# DictationPro Backend - Python 依赖
+
+# 核心依赖
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# 文件解析
+python-docx>=1.1.0
+pdfminer.six>=20231228
+pytesseract>=0.3.10
+Pillow>=10.2.0
+
+# 导出功能
+xlsxwriter>=3.1.9
+reportlab>=4.0.8
+
+# 测试
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# 生产环境（可选）
+# gunicorn>=21.2.0

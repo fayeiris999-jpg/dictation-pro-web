@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 开始听写</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ink': { 50: '#FAFAFA', 100: '#F5F5F5', 200: '#E8E8E8', 300: '#D4D4D4', 400: '#A3A3A3', 500: '#737373', 600: '#525252', 700: '#404040', 800: '#262626', 900: '#171717' },
+            'accent': { 50: '#F0F7FF', 100: '#E0EFFF', 200: '#B9E0FF', 300: '#7CC5FF', 400: '#36A8FF', 500: '#0080DD', 600: '#0062B5' },
+          },
+          fontFamily: { serif: ['"Noto Serif SC"', 'serif'], sans: ['"Noto Sans SC"', 'sans-serif'] },
+          animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'slide-up': 'slideUp 0.6s ease-out' },
+          keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: linear-gradient(180deg, #FAFAFA 0%, #F5F5F5 100%); min-height: 100vh; }
+    .card { background: rgba(255, 255, 255, 0.9); border-radius: 20px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.04); }
+    .btn-primary { background: linear-gradient(135deg, #0080DD 0%, #0062B5 100%); transition: all 0.3s; box-shadow: 0 2px 12px rgba(0, 128, 221, 0.2); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 128, 221, 0.3); }
+    .btn-success { background: linear-gradient(135deg, #0D7A4A 0%, #0A6340 100%); transition: all 0.3s; }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13, 122, 74, 0.3); }
+    .btn-secondary { background: #FFFFFF; border: 1.5px solid #E8E8E8; transition: all 0.2s; color: #525252; }
+    .btn-secondary:hover { background: #FAFAFA; border-color: #D4D4D4; color: #262626; }
+    .input-field { background: #FAFAFA; border: 1.5px solid #E8E8E8; transition: all 0.2s; }
+    .input-field:focus { outline: none; border-color: #0080DD; background: #FFFFFF; box-shadow: 0 0 0 4px rgba(0, 128, 221, 0.08); }
+    .word-item { transition: all 0.2s; }
+    .word-item.correct { background: rgba(13, 122, 74, 0.1); border-color: #0D7A4A; }
+    .word-item.wrong { background: rgba(196, 30, 58, 0.1); border-color: #C41E3A; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    const API = {
+      getToken: () => localStorage.getItem('dictation_token'),
+      getUser: () => JSON.parse(localStorage.getItem('dictation_user') || '{}'),
+      request: async (endpoint, method = 'GET', data = null) => {
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (data) options.body = JSON.stringify(data);
+        const res = await fetch(`/api${endpoint}`, options);
+        return await res.json();
+      }
+    };
+    
+    function App() {
+      const [user, setUser] = useState(null);
+      const [dictation, setDictation] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [answers, setAnswers] = useState([]);
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [submitted, setSubmitted] = useState(false);
+      const [result, setResult] = useState(null);
+      const [submitting, setSubmitting] = useState(false);
+      const inputRef = useRef(null);
+      
+      useEffect(() => {
+        const userData = API.getUser();
+        if (!userData || !userData.username) {
+          window.location.href = '/login-v6.html';
+          return;
+        }
+        setUser(userData);
+        loadDictation();
+      }, []);
+      
+      const loadDictation = async () => {
+        const params = new URLSearchParams(window.location.search);
+        const dictationId = params.get('id');
+        if (!dictationId) {
+          alert('缺少听写 ID');
+          window.location.href = '/student-v7.html';
+          return;
+        }
+        
+        try {
+          const res = await API.request('/dictation/get', 'POST', { dictationId });
+          if (res.success) {
+            setDictation(res.dictation);
+            setAnswers(new Array(res.dictation.words.length).fill(''));
+          } else {
+            alert('加载失败：' + res.error);
+            window.location.href = '/student-v7.html';
+          }
+        } catch (err) {
+          alert('加载失败：' + err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      const handleAnswerChange = (index, value) => {
+        const newAnswers = [...answers];
+        newAnswers[index] = value.trim();
+        setAnswers(newAnswers);
+      };
+      
+      const handleKeyDown = (index, e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (index < answers.length - 1) {
+            setCurrentIndex(index + 1);
+            setTimeout(() => inputRef.current?.children[index + 1]?.focus(), 50);
+          } else {
+            handleSubmit();
+          }
+        }
+      };
+      
+      const handleSubmit = async () => {
+        if (submitting) return;
+        
+        const emptyCount = answers.filter(a => !a).length;
+        if (emptyCount > 0) {
+          if (!confirm(`还有 ${emptyCount} 个单词未填写，确定要提交吗？`)) return;
+        }
+        
+        setSubmitting(true);
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const dictationId = params.get('id');
+          
+          const res = await API.request('/dictation/submit', 'POST', {
+            dictationId,
+            answers
+          });
+          
+          if (res.success) {
+            setResult(res);
+            setSubmitted(true);
+          } else {
+            alert('提交失败：' + res.error);
+          }
+        } catch (err) {
+          alert('提交失败：' + err.message);
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      
+      if (loading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-ink-500 font-light">加载中...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      if (submitted && result) {
+        return (
+          <div className="min-h-screen py-12 px-6">
+            <div className="max-w-3xl mx-auto">
+              <div className="card p-8 animate-slide-up">
+                <div className="text-center mb-8">
+                  <h1 className="text-3xl font-serif font-semibold text-ink-900 mb-2">听写完成！</h1>
+                  <p className="text-ink-500 font-light">{dictation?.title}</p>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                  <div className="text-center p-4 bg-ink-50 rounded-xl">
+                    <p className="text-sm text-ink-500 mb-1">得分</p>
+                    <p className="text-4xl font-serif font-semibold text-accent-600">{result.score}</p>
+                  </div>
+                  <div className="text-center p-4 bg-ink-50 rounded-xl">
+                    <p className="text-sm text-ink-500 mb-1">正确率</p>
+                    <p className="text-4xl font-serif font-semibold text-emerald-600">{result.correct_rate}%</p>
+                  </div>
+                  <div className="text-center p-4 bg-ink-50 rounded-xl">
+                    <p className="text-sm text-ink-500 mb-1">正确/总数</p>
+                    <p className="text-4xl font-serif font-semibold text-ink-900">{result.correct_count}/{result.total_count}</p>
+                  </div>
+                </div>
+                
+                {result.mistakes?.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">错题订正</h3>
+                    <div className="space-y-2">
+                      {result.mistakes.map((m, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-red-50 rounded-xl">
+                          <div>
+                            <span className="text-ink-700 font-medium">{m.word}</span>
+                            <span className="text-ink-400 mx-2">→</span>
+                            <span className="text-red-600 font-medium">{m.got || '(未填写)'}</span>
+                          </div>
+                          <span className="text-xs text-ink-500 bg-white px-2 py-1 rounded">{m.error_type === 'major' ? '拼写错误' : '轻微错误'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {result.analysis?.suggestions?.length > 0 && (
+                  <div className="mb-8 p-4 bg-amber-50 rounded-xl">
+                    <h4 className="font-medium text-amber-800 mb-2">💡 学习建议</h4>
+                    <ul className="text-sm text-amber-700 space-y-1">
+                      {result.analysis.suggestions.map((s, i) => (
+                        <li key={i}>• {s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <div className="flex gap-4">
+                  <button onClick={() => window.location.href = '/student-v7.html'} className="btn-secondary flex-1 py-3 rounded-xl font-medium">
+                    返回
+                  </button>
+                  <button onClick={() => window.location.href = '/student-v7.html?tab=stats'} className="btn-primary flex-1 py-3 rounded-xl text-white font-medium">
+                    查看统计
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen py-12 px-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="card p-8 animate-slide-up">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-serif font-semibold text-ink-900 mb-2">{dictation?.title}</h1>
+                <p className="text-ink-500 font-light">共 {dictation?.word_count} 个单词 · 按 Enter 继续</p>
+              </div>
+              
+              <div className="space-y-3 mb-8" ref={inputRef}>
+                {dictation?.words.map((word, index) => (
+                  <div key={index} className={`word-item flex items-center gap-4 p-4 rounded-xl border-2 ${currentIndex === index ? 'border-accent-500 bg-accent-50' : 'border-transparent bg-ink-50'}`}>
+                    <span className="text-sm font-medium text-ink-400 w-8">{index + 1}</span>
+                    <span className="text-ink-700 font-medium flex-1">{word.chinese || word.english}</span>
+                    <input
+                      type="text"
+                      value={answers[index]}
+                      onChange={(e) => handleAnswerChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      className="input-field w-48 px-4 py-2.5 rounded-xl text-ink-900 placeholder-ink-400"
+                      placeholder="输入英文..."
+                      autoFocus={index === 0}
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex gap-4">
+                <button onClick={() => window.location.href = '/student-v7.html'} className="btn-secondary px-8 py-3 rounded-xl font-medium">
+                  取消
+                </button>
+                <button onClick={handleSubmit} disabled={submitting} className="btn-success flex-1 py-3 rounded-xl text-white font-medium disabled:opacity-50">
+                  {submitting ? '提交中...' : '提交答案'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

@@ -1,149 +1,336 @@
-# DictationPro AI - Web 版 🚀
+# DictationPro AI Web v6.0 ⚡️
 
-> 智能听写系统 - 10 分钟 MVP 上线！
+> **智能听写系统网页版 | AI-Powered Dictation System**
 
----
-
-## 🎯 立即使用
-
-### 方法 1：本地打开（最快）
-
-直接在浏览器打开：
-
-```bash
-open /Users/airisagentswarm/dictation-pro-web/index.html
-```
-
-或者双击 `index.html` 文件！
-
-### 方法 2：本地服务器
-
-```bash
-cd /Users/airisagentswarm/dictation-pro-web
-python3 -m http.server 8080
-```
-
-然后访问：http://localhost:8080
+让听写从 30 分钟缩短到 5 分钟，自动批改、自动登记、自动同步。
 
 ---
 
-## 🌐 部署到 Vercel（免费上线）
+## 🎯 v6.0 新功能
 
-### 步骤 1：安装 Vercel CLI
-
-```bash
-npm install -g vercel
-```
-
-### 步骤 2：部署
-
-```bash
-cd /Users/airisagentswarm/dictation-pro-web
-vercel
-```
-
-### 步骤 3：获取上线链接
-
-部署完成后，Vercel 会给你一个链接，例如：
-```
-https://dictation-pro-web.vercel.app
-```
-
-**完成！全球可访问！** 🎉
+| 功能 | 描述 | 状态 |
+|------|------|------|
+| **🎨 学生端 v6** | 三标签页、成绩趋势图、错题本、一键导出 | ✅ 完成 |
+| **🎨 教师端 v6** | 班级统计、学生排名、分数分布图、创建听写 | ✅ 完成 |
+| **📊 Chart.js 集成** | 折线图/饼图/柱状图，4 种统计图表 | ✅ 完成 |
+| **🔐 用户登录系统** | JWT Token 认证，教师/学生角色区分 | ✅ 完成 |
+| **📥 错题本导出** | PDF/Excel格式，含统计分析 + 学习建议 | ✅ 完成 |
+| **🎵 音频生成 API** | 后端集成 Azure TTS，支持 SSML 控制 | ✅ 完成 |
+| **✅ 自动批改 API** | 编辑距离算法，支持容错处理 | ✅ 完成 |
+| **📊 飞书同步 API** | 自动同步成绩到飞书多维表格 | ✅ 完成 |
+| **📸 OCR 识别** | Tesseract.js 前端 OCR，支持中英文 | ✅ 完成 |
 
 ---
 
-## ✨ 功能特性
+## 🚀 快速启动
 
-### MVP 版本包含：
+### 方式一：一键启动（推荐）
 
-1. **🏠 首页** - 产品介绍 + 快速开始
-2. **📝 创建听写**
-   - 文本输入
-   - 快速模板
-   - 发音选择（美音/英音/中文）
-   - 语速调节
-   - 单词间隔设置
-3. **🎧 听写执行**
-   - 浏览器 TTS 发音
-   - 进度控制
-   - 答案输入
-   - 导航（上一个/下一个）
-4. **📊 自动批改**
-   - 即时评分
-   - 对错对比
-   - 错题本生成
-   - 可打印报告
+```bash
+~/.openclaw/workspace/dictation-pro-web/start.sh
+```
+
+### 方式二：手动启动
+
+```bash
+cd ~/.openclaw/workspace/dictation-pro-web/backend
+
+# 安装依赖
+source ~/.openclaw/workspace/.venv/bin/activate
+uv pip install -r requirements.txt
+
+# 配置环境变量（可选）
+cp .env.example .env
+# 编辑 .env 填入 Azure TTS 和飞书 API 密钥
+
+# 启动服务
+python server.py
+```
+
+后端服务将在 `http://localhost:3000` 启动
+
+### 2. 打开前端页面
+
+**教师端:**
+```
+http://localhost:3000/teacher-v5.html
+```
+
+**学生端:**
+```
+http://localhost:3000/student-v5.html?type=standard  (普通听写)
+http://localhost:3000/student-v5.html?type=ielts     (雅思同义替换)
+```
+
+---
+
+## 📁 项目结构
+
+```
+dictation-pro-web/
+├── backend/
+│   ├── server.js           # Express 后端 API
+│   ├── package.json        # 依赖配置
+│   └── .env                # 环境变量
+├── public/
+│   ├── teacher-v5.html     # 教师端网页
+│   └── student-v5.html     # 学生端网页
+└── README.md               # 项目说明
+```
+
+---
+
+## 🔌 API 接口
+
+### 1. 生成音频
+
+**POST** `/api/audio/generate`
+
+```json
+{
+  "words": [
+    { "english": "apple", "chinese": "苹果" },
+    { "english": "banana", "chinese": "香蕉" }
+  ],
+  "voice": "en-US-JennyNeural",
+  "speed": 0.9,
+  "interval": 3,
+  "repeats": 2
+}
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "audioUrl": "data:audio/mp3;base64,...",
+  "duration": 45
+}
+```
+
+---
+
+### 2. 自动批改
+
+**POST** `/api/correct`
+
+```json
+{
+  "studentAnswer": "aple, bananna",
+  "standardAnswer": "apple, banana",
+  "tolerance": 0.1
+}
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "report": {
+    "score": 50,
+    "correctRate": "50.0",
+    "totalWords": 2,
+    "correctCount": 1,
+    "errorCount": 1,
+    "corrections": [
+      {
+        "index": 0,
+        "expected": "apple",
+        "actual": "aple",
+        "type": "spelling_error"
+      }
+    ],
+    "feedback": "不错！注意拼写的细节哦~"
+  }
+}
+```
+
+---
+
+### 3. 飞书同步
+
+**POST** `/api/feishu/sync`
+
+```json
+{
+  "studentName": "张三",
+  "dictationDate": "2026-03-17",
+  "className": "25 级 IB IELTS 听力",
+  "content": "Unit 1 Vocabulary",
+  "score": 92,
+  "correctRate": 92.0,
+  "mistakes": ["necessary", "accommodate"]
+}
+```
+
+**响应:**
+```json
+{
+  "success": true,
+  "recordId": "rec_xxx",
+  "message": "成绩已同步到飞书"
+}
+```
+
+---
+
+### 4. 健康检查
+
+**GET** `/api/health`
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-03-17T10:30:00.000Z",
+  "services": {
+    "azureTTS": "configured",
+    "feishu": "configured"
+  }
+}
+```
+
+---
+
+## ⚙️ 环境配置
+
+### Azure TTS（可选）
+
+未配置时使用模拟音频（测试用）
+
+```env
+AZURE_TTS_KEY=your_azure_key
+AZURE_TTS_REGION=eastus
+```
+
+[获取 Azure TTS 密钥](https://portal.azure.com/#create/Microsoft.CognitiveServicesSpeechServices)
+
+---
+
+### 飞书 API（可选）
+
+未配置时模拟同步（测试用）
+
+```env
+FEISHU_APP_ID=your_app_id
+FEISHU_APP_SECRET=your_app_secret
+FEISHU_APP_TOKEN=IA4ZbHqLuaD5fZsz4ctc8TeKnBd
+FEISHU_TABLE_ID=tblqzJCZQHEanMZZ
+```
+
+[飞书开发者文档](https://open.feishu.cn/document/ukTMukTMukTM/uEjNwUjLxYDM14SM2ATN)
+
+---
+
+## 🎨 功能演示
+
+### 教师端功能
+
+1. **OCR 智能识别** - 上传表格截图自动识别单词
+2. **词表编辑** - 支持三列编辑（英文/中文/同义词）
+3. **音频生成** - 一键生成听写音频（Azure TTS）
+4. **班级设置** - 年级/项目/考试类型/技能级联选择
+5. **成绩管理** - 查看所有学生听写成绩
+
+### 学生端功能
+
+1. **听写选择** - 选择老师发布的听写任务
+2. **音频播放** - 在线播放听写音频
+3. **答案输入** - 文本输入听写答案
+4. **自动批改** - AI 智能判分，识别错误类型
+5. **错题本** - 自动生成错题本，标注错误类型
+6. **成绩同步** - 自动同步到飞书多维表格
+
+---
+
+## 📊 批改算法
+
+### 错误类型识别
+
+| 类型 | 描述 | 示例 |
+|------|------|------|
+| `spelling_error` | 拼写错误 | `aple` → `apple` |
+| `case_error` | 大小写错误 | `Apple` → `apple` |
+| `order_error` | 词序错误 | `anple` → `apple` |
+| `omission` | 遗漏 | `(空)` → `apple` |
+
+### 容错处理
+
+- 编辑距离 ≤ 10% 视为正确
+- 支持同义词判定（可扩展）
+- 自动忽略标点符号
 
 ---
 
 ## 🛠️ 技术栈
 
-- **React 18** - 前端框架（CDN 加载）
-- **Tailwind CSS** - 样式框架
-- **Web Speech API** - 浏览器原生 TTS
-- **Vercel** - 免费部署
+### 后端
+- **Node.js** + **Express** - Web 框架
+- **Axios** - HTTP 客户端
+- **CORS** - 跨域支持
 
-**无需构建工具，无需 Node.js，单文件即可运行！**
+### 前端
+- **React 18** - UI 框架
+- **TailwindCSS** - 样式系统
+- **Tesseract.js 5** - OCR 识别
 
----
-
-## 📱 兼容性
-
-- ✅ Chrome / Edge
-- ✅ Safari
-- ✅ Firefox
-- ✅ 手机浏览器
+### AI 服务
+- **Azure TTS** - 语音合成
+- **飞书 Bitable API** - 数据同步
 
 ---
 
-## 🎨 自定义
+## 📈 开发计划
 
-### 修改主题色
+### v5.1 (2026-03-24 ~ 2026-03-31)
+- [ ] 用户登录系统
+- [ ] 听写历史记录
+- [ ] 成绩统计分析
+- [ ] 错题本导出
 
-编辑 `index.html`，找到 `<style>` 部分：
+### v5.2 (2026-04-01 ~ 2026-04-15)
+- [ ] 微信小程序集成
+- [ ] 支付系统（会员版）
+- [ ] 多教师协作
+- [ ] 班级管理系统
 
-```css
-body {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-```
-
-修改颜色值即可。
-
-### 添加更多模板
-
-编辑 `index.html`，找到 `quickTemplates` 数组：
-
-```javascript
-const quickTemplates = [
-  'apple, banana, orange, grape, strawberry',
-  'necessary, accommodate, questionnaire, committee',
-  'photosynthesis, ecosystem, biodiversity, evolution',
-  // 添加你的模板...
-];
-```
+### v6.0 (2026-04-16 ~ 2026-05-01)
+- [ ] AI 作文批改
+- [ ] 口语跟读评分
+- [ ] 个性化推荐
+- [ ] 学习报告生成
 
 ---
 
-## 🚀 下一步优化
+## 🐛 常见问题
 
-### 待开发功能：
+### Q: 后端服务无法启动
+**A:** 检查 Node.js 版本（建议 v18+），运行 `npm install` 安装依赖
 
-- [ ] 音频文件生成（Azure TTS）
-- [ ] 用户数据保存（LocalStorage）
-- [ ] 飞书同步
-- [ ] 错题本持久化
-- [ ] 分享功能
-- [ ] 多语言支持
+### Q: 音频生成失败
+**A:** 检查 Azure TTS 密钥配置，或查看控制台错误信息
 
----
+### Q: 飞书同步失败
+**A:** 检查飞书应用权限，确保有多维表格写入权限
 
-## 📞 联系方式
-
-**产品负责人：** Usa ⚡️（优飒）
+### Q: OCR 识别不准确
+**A:** 尝试上传更清晰的截图，白底黑字效果最佳
 
 ---
 
-*创建时间：2026-03-15*  
-*版本：v1.0 MVP*
+## 📞 技术支持
+
+**产品负责人:** Usa ⚡️（优飒）  
+**邮箱:** hello@dictationpro.ai  
+**微信:** DictationProAI
+
+---
+
+## 📄 许可证
+
+MIT License
+
+---
+
+*最后更新：2026-03-17*  
+*版本：v5.0*  
+*维护者：Usa ⚡️*

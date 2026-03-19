@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 教师端 v8.0</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ink': {
+              50: '#FAFAFA', 100: '#F5F5F5', 200: '#E8E8E8', 300: '#D4D4D4',
+              400: '#A3A3A3', 500: '#737373', 600: '#525252', 700: '#404040',
+              800: '#262626', 900: '#171717',
+            },
+            'accent': {
+              50: '#F0F7FF', 100: '#E0EFFF', 200: '#B9E0FF', 300: '#7CC5FF',
+              400: '#36A8FF', 500: '#0080DD', 600: '#0062B5', 700: '#005094',
+            },
+            'success': {
+              50: '#F0FDF4', 100: '#DCFCE7', 200: '#BBF7D0', 300: '#86EFAC',
+              400: '#4ADE80', 500: '#22C55E', 600: '#16A34A',
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 4px 24px rgba(0, 0, 0, 0.06)',
+            'soft-lg': '0 8px 40px rgba(0, 0, 0, 0.08)',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out',
+            'slide-up': 'slideUp 0.6s ease-out',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: linear-gradient(180deg, #FAFAFA 0%, #F5F5F5 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0080DD 0%, #0062B5 100%);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 12px rgba(0, 128, 221, 0.2);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 128, 221, 0.3); }
+    .btn-success {
+      background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+      transition: all 0.3s;
+      box-shadow: 0 2px 12px rgba(34, 197, 94, 0.2);
+    }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3); }
+    .btn-secondary {
+      background: #FFFFFF;
+      border: 1.5px solid #E8E8E8;
+      transition: all 0.2s;
+      color: #525252;
+    }
+    .btn-secondary:hover { background: #FAFAFA; border-color: #D4D4D4; color: #262626; }
+    .tab-active {
+      background: rgba(0, 128, 221, 0.08);
+      color: #0080DD;
+      border-bottom: 2px solid #0080DD;
+    }
+    .input-field {
+      background: #FAFAFA;
+      border: 1.5px solid #E8E8E8;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #0080DD;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(0, 128, 221, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const API_BASE = 'http://localhost:3000/api';
+    
+    const API = {
+      getToken: () => localStorage.getItem('dictation_token'),
+      getUser: () => JSON.parse(localStorage.getItem('dictation_user') || '{}'),
+      
+      createDictation: async (data) => {
+        const token = API.getToken();
+        const res = await fetch(`${API_BASE}/dictation/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, ...data })
+        });
+        return await res.json();
+      },
+      
+      getClassStats: async (classId) => {
+        const token = API.getToken();
+        const res = await fetch(`${API_BASE}/stats/class`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, classId })
+        });
+        return await res.json();
+      },
+      
+      getDictations: async () => {
+        const token = API.getToken();
+        const res = await fetch(`${API_BASE}/dictation/list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        return await res.json();
+      },
+      
+      parseFile: async (fileBase64, fileType) => {
+        const res = await fetch(`${API_BASE}/file/parse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: fileBase64, type: fileType })
+        });
+        return await res.json();
+      }
+    };
+    
+    // ========== 文件上传组件（支持 Word/PDF/图片）==========
+    function FileUploader({ onWordsExtracted }) {
+      const [dragOver, setDragOver] = useState(false);
+      const [processing, setProcessing] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [fileType, setFileType] = useState('auto'); // auto/word/pdf/image
+      const fileInputRef = useRef(null);
+      
+      const processFile = async (file) => {
+        setProcessing(true);
+        setProgress(0);
+        
+        try {
+          // 确定文件类型
+          let type = fileType;
+          if (type === 'auto') {
+            if (file.type.includes('word') || file.name.endsWith('.docx')) type = 'word';
+            else if (file.type.includes('pdf') || file.name.endsWith('.pdf')) type = 'pdf';
+            else if (file.type.includes('image')) type = 'image';
+          }
+          
+          // 读取文件为 Base64
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const result = e.target.result;
+              const base64Data = result.split(',')[1];
+              resolve(base64Data);
+            };
+            reader.readAsDataURL(file);
+          });
+          
+          // 调用后端 API 解析
+          const result = await API.parseFile(base64, type);
+          
+          if (result.success && result.words && result.words.length > 0) {
+            onWordsExtracted(result.words);
+            alert(`✅ 成功提取 ${result.words.length} 个单词！`);
+          } else {
+            alert('⚠️ 未识别到单词，请确保文件格式正确\n' + (result.error || ''));
+          }
+        } catch (error) {
+          console.error('文件解析失败:', error);
+          alert('❌ 文件解析失败：' + error.message);
+        } finally {
+          setProcessing(false);
+          setProgress(0);
+        }
+      };
+      
+      const handleFile = (file) => {
+        if (!file) return;
+        
+        // 验证文件类型
+        const validTypes = [
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/pdf',
+          'image/png',
+          'image/jpeg',
+          'image/jpg'
+        ];
+        
+        if (!validTypes.includes(file.type) && !file.name.match(/\.(docx|pdf|png|jpg|jpeg)$/i)) {
+          alert('请上传 Word、PDF 或图片文件');
+          return;
+        }
+        
+        processFile(file);
+      };
+      
+      const handleDrop = (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files[0];
+        handleFile(file);
+      };
+      
+      return (
+        <div className="border-2 border-dashed border-ink-300 rounded-2xl p-10 text-center hover:border-accent-400 transition-colors">
+          {processing ? (
+            <div>
+              <div className="w-16 h-16 border-4 border-accent-200 border-t-accent-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-ink-700 font-medium mb-2">正在解析文件...</p>
+              <p className="text-ink-500 text-sm">{progress}%</p>
+            </div>
+          ) : (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              className="cursor-pointer"
+            >
+              <span className="text-4xl mb-3 block">📄</span>
+              <p className="text-ink-700 font-medium mb-1">拖拽文件到此处，或点击上传</p>
+              <p className="text-ink-500 text-sm mb-3">支持 Word (.docx), PDF, 图片 (.png/.jpg)</p>
+              
+              <div className="flex gap-2 justify-center mb-3">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileType('word'); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${fileType === 'word' ? 'bg-accent-100 text-accent-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'}`}
+                >
+                  📝 Word
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileType('pdf'); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${fileType === 'pdf' ? 'bg-accent-100 text-accent-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'}`}
+                >
+                  📕 PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileType('image'); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${fileType === 'image' ? 'bg-accent-100 text-accent-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'}`}
+                >
+                  📸 图片
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileType('auto'); }}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${fileType === 'auto' ? 'bg-accent-100 text-accent-700' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'}`}
+                >
+                  🤖 自动
+                </button>
+              </div>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".docx,.pdf,.png,.jpg,.jpeg"
+            onChange={(e) => handleFile(e.target.files[0])}
+            className="hidden"
+          />
+        </div>
+      );
+    }
+    
+    // ========== 学生排名组件 ==========
+    function StudentRanking({ classStats }) {
+      const [loading, setLoading] = useState(false);
+      const [ranking, setRanking] = useState([]);
+      
+      useEffect(() => {
+        if (classStats?.student_ranking) {
+          setRanking(classStats.student_ranking);
+        }
+      }, [classStats]);
+      
+      const getMedal = (index) => {
+        if (index === 0) return '🥇';
+        if (index === 1) return '🥈';
+        if (index === 2) return '🥉';
+        return `#${index + 1}`;
+      };
+      
+      const getTrendIcon = (avg) => {
+        if (avg >= 90) return '📈';
+        if (avg >= 80) return '➡️';
+        return '📉';
+      };
+      
+      return (
+        <div className="space-y-6 animate-slide-up">
+          {/* 排名概览卡片 */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="card p-6 bg-gradient-to-br from-yellow-50 to-amber-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-ink-500">🥇 冠军</span>
+                <span className="text-2xl">🏆</span>
+              </div>
+              <p className="text-2xl font-serif font-bold text-ink-900">
+                {ranking[0]?.username || '-'}
+              </p>
+              <p className="text-sm text-ink-600">{ranking[0]?.average_score || 0}分</p>
+            </div>
+            
+            <div className="card p-6 bg-gradient-to-br from-ink-50 to-gray-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-ink-500">🥈 亚军</span>
+                <span className="text-2xl">🎖️</span>
+              </div>
+              <p className="text-2xl font-serif font-bold text-ink-900">
+                {ranking[1]?.username || '-'}
+              </p>
+              <p className="text-sm text-ink-600">{ranking[1]?.average_score || 0}分</p>
+            </div>
+            
+            <div className="card p-6 bg-gradient-to-br from-amber-50 to-orange-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-ink-500">🥉 季军</span>
+                <span className="text-2xl">🎗️</span>
+              </div>
+              <p className="text-2xl font-serif font-bold text-ink-900">
+                {ranking[2]?.username || '-'}
+              </p>
+              <p className="text-sm text-ink-600">{ranking[2]?.average_score || 0}分</p>
+            </div>
+          </div>
+          
+          {/* 完整排名表格 */}
+          <div className="card p-6">
+            <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">📊 完整排名</h3>
+            
+            {ranking.length === 0 ? (
+              <div className="text-center py-12 text-ink-400">
+                <span className="text-5xl mb-4 block">📭</span>
+                <p>暂无学生数据</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-ink-200">
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-ink-500 uppercase tracking-wider">排名</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-ink-500 uppercase tracking-wider">学生</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-ink-500 uppercase tracking-wider">平均分</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-ink-500 uppercase tracking-wider">听写次数</th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold text-ink-500 uppercase tracking-wider">趋势</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ranking.map((student, index) => (
+                      <tr
+                        key={student.username}
+                        className={`border-b border-ink-100 hover:bg-ink-50 transition-colors ${
+                          index < 3 ? 'bg-gradient-to-r from-accent-50/50 to-transparent' : ''
+                        }`}
+                      >
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg ${
+                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                            index === 1 ? 'bg-ink-200 text-ink-700' :
+                            index === 2 ? 'bg-amber-100 text-amber-700' :
+                            'bg-ink-100 text-ink-600'
+                          }`}>
+                            {getMedal(index)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white font-bold">
+                              {student.username[0].toUpperCase()}
+                            </div>
+                            <span className="font-medium text-ink-800">{student.username}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                            student.average_score >= 90 ? 'bg-success-100 text-success-700' :
+                            student.average_score >= 80 ? 'bg-accent-100 text-accent-700' :
+                            student.average_score >= 70 ? 'bg-amber-100 text-amber-700' :
+                            'bg-error-100 text-error-700'
+                          }`}>
+                            {student.average_score}分
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-ink-600">{student.dictation_count}次</td>
+                        <td className="py-4 px-4 text-2xl">{getTrendIcon(student.average_score)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          
+          {/* 分数分布 */}
+          {classStats?.score_distribution && (
+            <div className="card p-6">
+              <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">📈 分数分布</h3>
+              <div className="grid grid-cols-5 gap-4">
+                {Object.entries(classStats.score_distribution).map(([range, count]) => (
+                  <div key={range} className="text-center p-4 rounded-xl bg-ink-50">
+                    <p className="text-2xl font-bold text-ink-900">{count}</p>
+                    <p className="text-xs text-ink-500 mt-1">{range}分</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // ========== 创建听写表单 ==========
+    function CreateDictationForm() {
+      const [title, setTitle] = useState('');
+      const [classId, setClassId] = useState('25 级 IB IELTS 听力');
+      const [words, setWords] = useState([]);
+      const [manualInput, setManualInput] = useState('');
+      const [creating, setCreating] = useState(false);
+      const [success, setSuccess] = useState(false);
+      
+      const handleFileResult = (extractedWords) => {
+        setWords(extractedWords);
+        setManualInput(extractedWords.map(w => `${w.english}-${w.chinese}${w.synonym ? '-' + w.synonym : ''}`).join(', '));
+      };
+      
+      const handleManualParse = () => {
+        // 解析手动输入的文本（支持同义词）
+        const lines = manualInput.split(/[,，\n]/).filter(l => l.trim());
+        const parsed = [];
+        
+        for (const line of lines) {
+          // 尝试匹配 "英文 - 中文 - 同义词" 或 "英文 - 中文"
+          const match = line.match(/([a-zA-Z]+)\s*[-–—]?\s*([\u4e00-\u9fa5]+)(?:\s*[-–—]?\s*([a-zA-Z,\s]+))?/);
+          if (match) {
+            parsed.push({
+              english: match[1].trim(),
+              chinese: match[2].trim(),
+              synonym: match[3] ? match[3].trim() : ''
+            });
+          }
+        }
+        
+        if (parsed.length > 0) {
+          setWords(parsed);
+          alert(`✅ 解析 ${parsed.length} 个单词！`);
+        } else {
+          alert('⚠️ 格式不正确，请使用"英文 - 中文 - 同义词"格式');
+        }
+      };
+      
+      const handleSubmit = async () => {
+        if (!title.trim()) {
+          alert('请输入听写标题');
+          return;
+        }
+        if (words.length === 0) {
+          alert('请添加单词');
+          return;
+        }
+        
+        setCreating(true);
+        try {
+          const result = await API.createDictation({
+            title,
+            classId,
+            words,
+            audioSettings: {
+              voice: 'zh-CN-XiaoxiaoNeural',
+              speed: 1.0,
+              interval: 3
+            }
+          });
+          
+          if (result.success) {
+            setSuccess(true);
+            setTimeout(() => {
+              setSuccess(false);
+              setTitle('');
+              setWords([]);
+              setManualInput('');
+            }, 3000);
+          } else {
+            alert('❌ 创建失败：' + result.error);
+          }
+        } catch (error) {
+          console.error('创建失败:', error);
+          alert('❌ 无法连接服务器');
+        } finally {
+          setCreating(false);
+        }
+      };
+      
+      if (success) {
+        return (
+          <div className="card p-8 text-center animate-fade-in">
+            <div className="w-20 h-20 bg-success-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">✅</span>
+            </div>
+            <h3 className="text-lg font-serif font-semibold text-ink-900 mb-2">创建成功！</h3>
+            <p className="text-ink-500">听写任务已发布，学生可以开始练习</p>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="card p-8 animate-slide-up">
+          <h2 className="text-2xl font-serif font-semibold text-ink-900 mb-3">创建新听写</h2>
+          <p className="text-ink-500 font-light mb-6">上传 Word/PDF/图片 或手动输入创建听写任务</p>
+          
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-2">听写标题</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="input-field w-full px-4 py-3 rounded-xl"
+                placeholder="例如：Unit 1 Vocabulary"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-2">选择班级</label>
+              <select
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+                className="input-field w-full px-4 py-3 rounded-xl"
+              >
+                <option>25 级 IB IELTS 听力</option>
+                <option>25 级 IB 托福 听力</option>
+                <option>24 级 AP 托福 听力</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-2">上传词表文件</label>
+              <FileUploader onWordsExtracted={handleFileResult} />
+              
+              <div className="mt-4">
+                <label className="block text-xs text-ink-500 mb-2">或手动输入（格式：英文 - 中文 - 同义词）</label>
+                <div className="flex gap-2">
+                  <textarea
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    className="input-field flex-1 px-4 py-3 rounded-xl text-sm min-h-[100px] resize-y"
+                    placeholder="apple-苹果，banana-香蕉，orange-橙子-柑橘"
+                  />
+                  <button
+                    onClick={handleManualParse}
+                    className="btn-secondary px-6 py-3 rounded-xl font-medium h-fit"
+                  >
+                    解析
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {words.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-ink-700 mb-2">已添加 {words.length} 个单词</label>
+                <div className="bg-ink-50 rounded-xl p-4 max-h-60 overflow-y-auto">
+                  <div className="space-y-2 text-sm">
+                    {words.map((w, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-ink-800">{w.english}</span>
+                          <span className="text-ink-500">→</span>
+                          <span className="text-ink-600">{w.chinese}</span>
+                          {w.synonym && (
+                            <>
+                              <span className="text-ink-400">|</span>
+                              <span className="text-accent-600 italic">同义：{w.synonym}</span>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setWords(words.filter((_, idx) => idx !== i))}
+                          className="text-ink-400 hover:text-error-500 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => { setTitle(''); setWords([]); setManualInput(''); }} className="btn-secondary flex-1 py-3 rounded-xl font-medium">
+                取消
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={creating || !title || words.length === 0}
+                className="btn-primary flex-1 py-3 rounded-xl text-white font-medium disabled:opacity-50"
+              >
+                {creating ? '⏳ 创建中...' : '✅ 创建听写'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 主应用 ==========
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [user, setUser] = useState(null);
+      const [classStats, setClassStats] = useState(null);
+      const [loading, setLoading] = useState(true);
+      
+      useEffect(() => {
+        const userData = API.getUser();
+        if (!userData.username || userData.role !== 'teacher') {
+          window.location.href = '/login-v6.html';
+          return;
+        }
+        setUser(userData);
+        loadClassStats();
+      }, []);
+      
+      const loadClassStats = async () => {
+        try {
+          const result = await API.getClassStats('25 级 IB IELTS 听力');
+          if (result.success) {
+            setClassStats(result.stats);
+          }
+        } catch (error) {
+          console.error('加载班级统计失败:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      const handleLogout = () => {
+        localStorage.removeItem('dictation_token');
+        localStorage.removeItem('dictation_user');
+        window.location.href = '/login-v6.html';
+      };
+      
+      if (loading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-10 h-10 border-3 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-ink-500 font-light">加载中...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen">
+          {/* 导航栏 */}
+          <nav className="glass-nav sticky top-0 z-50">
+            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👨‍🏫</span>
+                <span className="font-serif font-semibold text-ink-900">DictationPro · 教师端</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-ink-600 font-light">
+                  <span className="font-medium">{user?.display_name || user?.username}</span>
+                </div>
+                <button onClick={handleLogout} className="btn-secondary px-4 py-2 rounded-xl text-sm">登出</button>
+              </div>
+            </div>
+          </nav>
+          
+          {/* 标签页切换 */}
+          <div className="max-w-6xl mx-auto px-6 mt-8">
+            <div className="flex gap-1 bg-white/60 rounded-2xl p-1.5 w-fit">
+              <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'tab-active' : 'text-ink-500 hover:text-ink-700'}`}>班级统计</button>
+              <button onClick={() => setActiveTab('students')} className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'students' ? 'tab-active' : 'text-ink-500 hover:text-ink-700'}`}>学生排名</button>
+              <button onClick={() => setActiveTab('create')} className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'create' ? 'tab-active' : 'text-ink-500 hover:text-ink-700'}`}>创建听写</button>
+            </div>
+          </div>
+          
+          {/* 主内容区 */}
+          <div className="max-w-6xl mx-auto px-6 py-6">
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6 animate-slide-up">
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">班级人数</p>
+                    <p className="text-3xl font-serif font-semibold text-ink-900">{classStats?.total_students || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">班级平均分</p>
+                    <p className="text-3xl font-serif font-semibold text-accent-600">{classStats?.average_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">最高分</p>
+                    <p className="text-3xl font-serif font-semibold text-success-600">{classStats?.highest_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">最低分</p>
+                    <p className="text-3xl font-serif font-semibold text-amber-600">{classStats?.lowest_score || 0}</p>
+                  </div>
+                </div>
+                <div className="card p-6">
+                  <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">听写任务列表</h3>
+                  <p className="text-ink-500 font-light">功能开发中...</p>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'students' && <StudentRanking classStats={classStats} />}
+            
+            {activeTab === 'create' && <CreateDictationForm />}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

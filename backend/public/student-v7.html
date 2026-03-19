@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 学生端</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ink': {
+              50: '#FAFAFA', 100: '#F5F5F5', 200: '#E8E8E8', 300: '#D4D4D4',
+              400: '#A3A3A3', 500: '#737373', 600: '#525252', 700: '#404040',
+              800: '#262626', 900: '#171717',
+            },
+            'accent': {
+              50: '#F0F7FF', 100: '#E0EFFF', 200: '#B9E0FF', 300: '#7CC5FF',
+              400: '#36A8FF', 500: '#0080DD', 600: '#0062B5', 700: '#005094',
+            },
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 4px 24px rgba(0, 0, 0, 0.06)',
+            'soft-lg': '0 8px 40px rgba(0, 0, 0, 0.08)',
+          },
+          animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'slide-up': 'slideUp 0.6s ease-out' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: linear-gradient(180deg, #FAFAFA 0%, #F5F5F5 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0080DD 0%, #0062B5 100%);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 12px rgba(0, 128, 221, 0.2);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 128, 221, 0.3); }
+    .btn-success {
+      background: linear-gradient(135deg, #0D7A4A 0%, #0A6340 100%);
+      transition: all 0.3s;
+      box-shadow: 0 2px 12px rgba(13, 122, 74, 0.2);
+    }
+    .btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13, 122, 74, 0.3); }
+    .btn-secondary {
+      background: #FFFFFF;
+      border: 1.5px solid #E8E8E8;
+      transition: all 0.2s;
+      color: #525252;
+    }
+    .btn-secondary:hover { background: #FAFAFA; border-color: #D4D4D4; color: #262626; }
+    .tab-active {
+      background: rgba(0, 128, 221, 0.08);
+      color: #0080DD;
+      border-bottom: 2px solid #0080DD;
+    }
+    .input-field {
+      background: #FAFAFA;
+      border: 1.5px solid #E8E8E8;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #0080DD;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(0, 128, 221, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    const API = {
+      getToken: () => localStorage.getItem('dictation_token'),
+      getUser: () => JSON.parse(localStorage.getItem('dictation_user') || '{}'),
+      getUserStats: async () => {
+        const token = API.getToken();
+        const res = await fetch('/api/stats/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        return await res.json();
+      },
+      getErrorAnalysis: async () => {
+        const token = API.getToken();
+        const res = await fetch('/api/stats/errors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        return await res.json();
+      },
+      exportExcel: async () => {
+        const token = API.getToken();
+        const res = await fetch('/api/export/excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        return await res.json();
+      },
+      exportPdf: async () => {
+        const token = API.getToken();
+        const res = await fetch('/api/export/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        return await res.json();
+      }
+    };
+    
+    const TrendChart = ({ stats }) => {
+      const canvasRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current || !stats?.recent_scores?.length) return;
+        const ctx = canvasRef.current.getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: stats.recent_scores.map((_, i) => `第${i+1}次`),
+            datasets: [{
+              data: stats.recent_scores.map(s => s.score),
+              borderColor: '#0080DD',
+              backgroundColor: 'rgba(0, 128, 221, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 5,
+              pointHoverRadius: 7
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }, [stats]);
+      
+      if (!stats?.recent_scores?.length) {
+        return <div className="h-64 flex items-center justify-center text-ink-400 font-light">暂无成绩数据</div>;
+      }
+      return <div className="h-64"><canvas ref={canvasRef}></canvas></div>;
+    };
+    
+    const ErrorChart = ({ errors }) => {
+      const canvasRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current || !errors?.length) return;
+        const ctx = canvasRef.current.getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: errors.slice(0, 10).map(e => e.word),
+            datasets: [{
+              data: errors.slice(0, 10).map(e => e.count),
+              backgroundColor: 'rgba(196, 30, 58, 0.75)',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+              y: { grid: { display: false } }
+            }
+          }
+        });
+      }, [errors]);
+      
+      if (!errors?.length) {
+        return <div className="h-64 flex items-center justify-center text-ink-400 font-light">暂无错题数据</div>;
+      }
+      return <div className="h-64"><canvas ref={canvasRef}></canvas></div>;
+    };
+    
+    function App() {
+      const [activeTab, setActiveTab] = useState('dictation');
+      const [user, setUser] = useState(null);
+      const [stats, setStats] = useState(null);
+      const [errors, setErrors] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [exporting, setExporting] = useState(null);
+      
+      useEffect(() => {
+        const userData = API.getUser();
+        if (!userData || !userData.username) {
+          window.location.href = '/login-v6.html';
+          return;
+        }
+        setUser(userData);
+        loadStats();
+      }, []);
+      
+      const loadStats = async () => {
+        try {
+          const [statsRes, errorsRes] = await Promise.all([
+            API.getUserStats(),
+            API.getErrorAnalysis()
+          ]);
+          if (statsRes?.success) setStats(statsRes.stats);
+          if (errorsRes?.success) setErrors(errorsRes.errors);
+        } catch (err) { 
+          console.error('加载统计失败:', err); 
+        }
+        finally { setLoading(false); }
+      };
+      
+      const handleExport = async (type) => {
+        setExporting(type);
+        try {
+          const result = type === 'excel' ? await API.exportExcel() : await API.exportPdf();
+          if (result.success) window.open(result.download_url, '_blank');
+          else alert('导出失败：' + result.error);
+        } catch (err) { alert('导出失败：' + err.message); }
+        finally { setExporting(null); }
+      };
+      
+      const handleLogout = () => {
+        localStorage.removeItem('dictation_token');
+        localStorage.removeItem('dictation_user');
+        window.location.href = '/login-v6.html';
+      };
+      
+      // 全局函数：开始听写
+      window.startDictation = (dictationId) => {
+        window.location.href = `/dictation-start.html?id=${dictationId}`;
+      };
+      
+      // 加载听写列表
+      useEffect(() => {
+        if (activeTab === 'dictation') {
+          loadDictations();
+        }
+      }, [activeTab]);
+      
+      const loadDictations = async () => {
+        try {
+          const token = API.getToken();
+          const res = await fetch('/api/dictation/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const data = await res.json();
+          
+          if (data.success && data.dictations.length > 0) {
+            const container = document.getElementById('dictation-list');
+            if (container) {
+              container.innerHTML = data.dictations.map(d => `
+                <div class="border border-ink-200 rounded-2xl p-6 hover:shadow-soft transition-all cursor-pointer">
+                  <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-medium text-accent-600 bg-accent-50 px-2.5 py-1 rounded-lg">听写</span>
+                    <span class="text-xs text-ink-400">${d.word_count}词</span>
+                  </div>
+                  <h3 class="font-medium text-ink-800 mb-2">${d.title}</h3>
+                  <p class="text-sm text-ink-500 font-light mb-4">创建于 ${d.created_at?.split('T')[0]}</p>
+                  <button onclick="startDictation('${d.id}')" class="btn-primary w-full py-2.5 rounded-xl text-white text-sm font-medium">开始听写</button>
+                </div>
+              `).join('');
+            }
+          }
+        } catch (err) {
+          console.error('加载听写列表失败:', err);
+        }
+      };
+      
+      if (loading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-10 h-10 border-3 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-ink-500 font-light">加载中...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen">
+          <nav className="glass-nav sticky top-0 z-50">
+            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎧</span>
+                <span className="font-serif font-semibold text-ink-900">DictationPro</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-ink-600 font-light">
+                  <span className="font-medium">{user?.display_name || user?.username}</span>
+                  {user?.class_name && <span className="text-ink-400 ml-2">| {user.class_name}</span>}
+                </div>
+                <button onClick={handleLogout} className="btn-secondary px-4 py-2 rounded-xl text-sm">登出</button>
+              </div>
+            </div>
+          </nav>
+          
+          <div className="max-w-6xl mx-auto px-6 mt-8">
+            <div className="flex gap-1 bg-white/60 rounded-2xl p-1.5 w-fit">
+              <button onClick={() => setActiveTab('dictation')} className={`px-6 py-2.5 rounded-xl text-sm font-medium tab-active ${activeTab === 'dictation' ? '' : 'text-ink-500 hover:text-ink-700'}`}>听写练习</button>
+              <button onClick={() => setActiveTab('stats')} className={`px-6 py-2.5 rounded-xl text-sm font-medium tab-active ${activeTab === 'stats' ? '' : 'text-ink-500 hover:text-ink-700'}`}>学习统计</button>
+              <button onClick={() => setActiveTab('errors')} className={`px-6 py-2.5 rounded-xl text-sm font-medium tab-active ${activeTab === 'errors' ? '' : 'text-ink-500 hover:text-ink-700'}`}>错题本</button>
+            </div>
+          </div>
+          
+          <div className="max-w-6xl mx-auto px-6 py-8">
+            {activeTab === 'dictation' && (
+              <div className="card p-8 animate-fade-in">
+                <h2 className="text-2xl font-serif font-semibold text-ink-900 mb-3">听写练习</h2>
+                <p className="text-ink-500 font-light mb-6">选择老师发布的听写任务开始练习</p>
+                <div id="dictation-list" className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="border border-ink-200 rounded-2xl p-6 hover:shadow-soft transition-all cursor-pointer">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-accent-600 bg-accent-50 px-2.5 py-1 rounded-lg">Unit 1</span>
+                      <span className="text-xs text-ink-400">10 词</span>
+                    </div>
+                    <h3 className="font-medium text-ink-800 mb-2">Vocabulary Warm-up</h3>
+                    <p className="text-sm text-ink-500 font-light mb-4">基础词汇预热练习</p>
+                    <button onclick="startDictation('dict_6b1b38929e309ac9')" className="btn-primary w-full py-2.5 rounded-xl text-white text-sm font-medium">开始听写</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'stats' && (
+              <div className="space-y-6 animate-slide-up">
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">总听写次数</p>
+                    <p className="text-3xl font-serif font-semibold text-ink-900">{stats?.total_dictations || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">平均分</p>
+                    <p className="text-3xl font-serif font-semibold text-accent-600">{stats?.average_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">最高分</p>
+                    <p className="text-3xl font-serif font-semibold text-emerald-600">{stats?.best_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-ink-500 font-light mb-1">学习趋势</p>
+                    <p className="text-3xl">{stats?.trend === 'improving' ? '📈' : stats?.trend === 'declining' ? '📉' : '➡️'}</p>
+                    <p className="text-xs text-ink-400 font-light mt-1">{stats?.trend === 'improving' ? '进步中' : stats?.trend === 'declining' ? '需努力' : '稳定'}</p>
+                  </div>
+                </div>
+                <div className="card p-6">
+                  <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">成绩趋势</h3>
+                  <TrendChart stats={stats} />
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => handleExport('excel')} disabled={exporting === 'excel'} className="btn-success px-6 py-3 rounded-xl text-white font-medium disabled:opacity-50">{exporting === 'excel' ? '导出中...' : '导出 Excel'}</button>
+                  <button onClick={() => handleExport('pdf')} disabled={exporting === 'pdf'} className="btn-primary px-6 py-3 rounded-xl text-white font-medium disabled:opacity-50">{exporting === 'pdf' ? '导出中...' : '导出 PDF'}</button>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'errors' && (
+              <div className="space-y-6 animate-slide-up">
+                <div className="card p-6">
+                  <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">错题分析</h3>
+                  <ErrorChart errors={errors} />
+                </div>
+                <div className="card p-6">
+                  <h3 className="text-lg font-serif font-medium text-ink-800 mb-4">错题列表</h3>
+                  {errors.length === 0 ? (
+                    <div className="text-center py-12 text-ink-400 font-light">
+                      <span className="text-4xl mb-4 block">🎉</span>
+                      太棒了！目前没有错题～
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {errors.map((error, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-red-50 rounded-xl">
+                          <div className="flex items-center gap-4">
+                            <span className="w-7 h-7 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-semibold text-xs">{i+1}</span>
+                            <span className="font-medium text-ink-800">{error.word}</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm text-ink-500 font-light">错误 {error.count} 次</span>
+                            <span>{error.count === 1 ? '⭐' : error.count === 2 ? '⭐⭐' : error.count <= 4 ? '⭐⭐⭐' : '⭐⭐⭐⭐'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

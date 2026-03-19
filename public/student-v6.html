@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 学生端 v6.0</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'apple-gray': {
+              50: '#F9F9FB', 100: '#F2F2F5', 200: '#E5E5EA', 300: '#D1D1D6',
+              400: '#AEAEB2', 500: '#8E8E93', 600: '#636366', 700: '#48484A',
+              800: '#3A3A3C', 900: '#1C1C1E',
+            },
+            'apple-blue': {
+              50: '#E8F4FD', 100: '#D0E8FA', 200: '#A5D4F5', 300: '#6BB9EE',
+              400: '#2F9AE5', 500: '#007AFF', 600: '#0063D1', 700: '#0051AD',
+              800: '#00448E', 900: '#003A73',
+            },
+            'apple-green': {
+              50: '#E8F9ED', 100: '#D0F3DA', 200: '#A5E7B8', 300: '#6BD68F',
+              400: '#2FC263', 500: '#34C759', 600: '#28A745', 700: '#208C3A',
+              800: '#1A7230', 900: '#155C26',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          animation: { 'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)', 'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #F5F5F7 0%, #E8E8ED 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #007AFF 0%, #0063D1 100%);
+      transition: all 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4); }
+    .btn-success {
+      background: linear-gradient(135deg, #34C759 0%, #28A745 100%);
+      transition: all 0.3s;
+    }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 0 24px rgba(52, 199, 89, 0.5); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 1); border-color: rgba(0, 0, 0, 0.15); }
+    .tab-active {
+      background: rgba(0, 122, 255, 0.1);
+      color: #007AFF;
+      border-bottom: 2px solid #007AFF;
+    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D1D6; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // ========== API 工具函数 ==========
+    const API = {
+      baseUrl: '/api',
+      
+      request: async (endpoint, method = 'GET', data = null) => {
+        const options = {
+          method,
+          headers: { 'Content-Type': 'application/json' }
+        };
+        if (data) options.body = JSON.stringify(data);
+        
+        const response = await fetch(`${API.baseUrl}${endpoint}`, options);
+        return await response.json();
+      },
+      
+      getToken: () => localStorage.getItem('dictation_token'),
+      
+      getUser: () => JSON.parse(localStorage.getItem('dictation_user') || '{}'),
+      
+      // 统计 API
+      getUserStats: async () => {
+        const token = API.getToken();
+        return API.request('/stats/user', 'POST', { token });
+      },
+      
+      getErrorAnalysis: async () => {
+        const token = API.getToken();
+        return API.request('/stats/errors', 'POST', { token });
+      },
+      
+      // 导出 API
+      exportExcel: async () => {
+        const token = API.getToken();
+        return API.request('/export/excel', 'POST', { token });
+      },
+      
+      exportPdf: async () => {
+        const token = API.getToken();
+        return API.request('/export/pdf', 'POST', { token });
+      }
+    };
+    
+    // ========== 统计图表组件 ==========
+    const TrendChart = ({ stats }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      
+      useEffect(() => {
+        if (!canvasRef.current || !stats?.recent_scores?.length) return;
+        
+        const ctx = canvasRef.current.getContext('2d');
+        
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+        
+        chartRef.current = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: stats.recent_scores.map((_, i) => `第${i+1}次`),
+            datasets: [{
+              label: '成绩',
+              data: stats.recent_scores.map(s => s.score),
+              borderColor: '#007AFF',
+              backgroundColor: 'rgba(0, 122, 255, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 6,
+              pointHoverRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+        
+        return () => {
+          if (chartRef.current) chartRef.current.destroy();
+        };
+      }, [stats]);
+      
+      if (!stats?.recent_scores?.length) {
+        return (
+          <div className="h-64 flex items-center justify-center text-gray-400">
+            暂无成绩数据
+          </div>
+        );
+      }
+      
+      return (
+        <div className="h-64">
+          <canvas ref={canvasRef}></canvas>
+        </div>
+      );
+    };
+    
+    const ErrorChart = ({ errors }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      
+      useEffect(() => {
+        if (!canvasRef.current || !errors?.length) return;
+        
+        const ctx = canvasRef.current.getContext('2d');
+        
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+        
+        chartRef.current = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: errors.slice(0, 10).map(e => e.word),
+            datasets: [{
+              label: '错误次数',
+              data: errors.slice(0, 10).map(e => e.count),
+              backgroundColor: 'rgba(255, 59, 48, 0.8)',
+              borderRadius: 8
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+              y: { grid: { display: false } }
+            }
+          }
+        });
+        
+        return () => {
+          if (chartRef.current) chartRef.current.destroy();
+        };
+      }, [errors]);
+      
+      if (!errors?.length) {
+        return (
+          <div className="h-64 flex items-center justify-center text-gray-400">
+            暂无错题数据
+          </div>
+        );
+      }
+      
+      return (
+        <div className="h-64">
+          <canvas ref={canvasRef}></canvas>
+        </div>
+      );
+    };
+    
+    // ========== 主应用组件 ==========
+    function App() {
+      const [activeTab, setActiveTab] = useState('dictation');
+      const [user, setUser] = useState(null);
+      const [stats, setStats] = useState(null);
+      const [errors, setErrors] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [exporting, setExporting] = useState(null);
+      
+      // 加载用户信息和统计数据
+      useEffect(() => {
+        const userData = API.getUser();
+        if (!userData.username) {
+          window.location.href = '/login-v5.html';
+          return;
+        }
+        setUser(userData);
+        loadStats();
+      }, []);
+      
+      const loadStats = async () => {
+        try {
+          const [statsRes, errorsRes] = await Promise.all([
+            API.getUserStats(),
+            API.getErrorAnalysis()
+          ]);
+          
+          if (statsRes.success) setStats(statsRes.stats);
+          if (errorsRes.success) setErrors(errorsRes.errors);
+        } catch (err) {
+          console.error('加载统计失败:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      const handleExport = async (type) => {
+        setExporting(type);
+        try {
+          const result = type === 'excel' 
+            ? await API.exportExcel() 
+            : await API.exportPdf();
+          
+          if (result.success) {
+            // 触发下载
+            window.open(result.download_url, '_blank');
+          } else {
+            alert('导出失败：' + result.error);
+          }
+        } catch (err) {
+          alert('导出失败：' + err.message);
+        } finally {
+          setExporting(null);
+        }
+      };
+      
+      const handleLogout = () => {
+        localStorage.removeItem('dictation_token');
+        localStorage.removeItem('dictation_user');
+        window.location.href = '/login-v5.html';
+      };
+      
+      if (loading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500">加载中...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen">
+          {/* 顶部导航栏 */}
+          <nav className="glass-nav sticky top-0 z-50">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎧</span>
+                <span className="font-semibold text-gray-800">DictationPro AI</span>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-600">
+                  👨‍🎓 {user?.display_name || user?.username}
+                  {user?.class_name && <span className="text-gray-400 ml-2">| {user.class_name}</span>}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="btn-secondary px-4 py-2 rounded-xl text-sm"
+                >
+                  登出
+                </button>
+              </div>
+            </div>
+          </nav>
+          
+          {/* 标签页切换 */}
+          <div className="max-w-6xl mx-auto px-4 mt-6">
+            <div className="flex gap-1 bg-white/50 rounded-2xl p-1 w-fit">
+              <button
+                onClick={() => setActiveTab('dictation')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'dictation' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📝 听写练习
+              </button>
+              <button
+                onClick={() => setActiveTab('stats')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'stats' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📊 学习统计
+              </button>
+              <button
+                onClick={() => setActiveTab('errors')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'errors' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📕 错题本
+              </button>
+            </div>
+          </div>
+          
+          {/* 主内容区 */}
+          <div className="max-w-6xl mx-auto px-4 py-6">
+            {/* 听写练习 */}
+            {activeTab === 'dictation' && (
+              <div className="card p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">📝 听写练习</h2>
+                <p className="text-gray-500 mb-6">选择老师发布的听写任务开始练习</p>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* 示例任务卡片 */}
+                  <div className="border border-gray-200 rounded-2xl p-6 hover:shadow-lg transition-all cursor-pointer">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">Unit 1</span>
+                      <span className="text-xs text-gray-400">20 词</span>
+                    </div>
+                    <h3 className="font-semibold text-gray-800 mb-2">Vocabulary Warm-up</h3>
+                    <p className="text-sm text-gray-500 mb-4">基础词汇预热练习</p>
+                    <button className="btn-primary w-full py-2.5 rounded-xl text-white text-sm font-medium">
+                      开始听写
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="mt-8 p-4 bg-blue-50 rounded-xl">
+                  <p className="text-sm text-gray-600">
+                    💡 <strong>提示：</strong> 听写完成后系统会自动批改并记录成绩，你可以在"学习统计"中查看进步趋势。
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* 学习统计 */}
+            {activeTab === 'stats' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* 统计概览 */}
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">总听写次数</p>
+                    <p className="text-3xl font-bold text-gray-800">{stats?.total_dictations || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">平均分</p>
+                    <p className="text-3xl font-bold text-blue-600">{stats?.average_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">最高分</p>
+                    <p className="text-3xl font-bold text-green-600">{stats?.best_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">学习趋势</p>
+                    <p className="text-3xl">
+                      {stats?.trend === 'improving' ? '📈' : stats?.trend === 'declining' ? '📉' : '➡️'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {stats?.trend === 'improving' ? '进步中' : stats?.trend === 'declining' ? '需努力' : '稳定'}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* 成绩趋势图 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📈 成绩趋势</h3>
+                  <TrendChart stats={stats} />
+                </div>
+                
+                {/* 导出按钮 */}
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => handleExport('excel')}
+                    disabled={exporting === 'excel'}
+                    className="btn-success px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {exporting === 'excel' ? '导出中...' : '📊 导出 Excel'}
+                  </button>
+                  <button
+                    onClick={() => handleExport('pdf')}
+                    disabled={exporting === 'pdf'}
+                    className="btn-primary px-6 py-3 rounded-xl text-white font-medium flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {exporting === 'pdf' ? '导出中...' : '📕 导出 PDF'}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* 错题本 */}
+            {activeTab === 'errors' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* 错题统计 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📕 错题分析</h3>
+                  <ErrorChart errors={errors} />
+                </div>
+                
+                {/* 错题列表 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">错题列表</h3>
+                  
+                  {errors.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400">
+                      <span className="text-4xl mb-4 block">🎉</span>
+                      太棒了！目前没有错题～
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {errors.map((error, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-4 bg-red-50 rounded-xl"
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm">
+                              {index + 1}
+                            </span>
+                            <span className="font-semibold text-gray-800">{error.word}</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm text-gray-500">
+                              错误 {error.count} 次
+                            </span>
+                            <span className="text-lg">
+                              {error.count === 1 ? '⭐' : error.count === 2 ? '⭐⭐' : error.count <= 4 ? '⭐⭐⭐' : '⭐⭐⭐⭐'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

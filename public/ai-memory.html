@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - AI 单词记忆</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ink': {
+              50: '#FAFAFA', 100: '#F5F5F5', 200: '#E8E8E8', 300: '#D4D4D4',
+              400: '#A3A3A3', 500: '#737373', 600: '#525252', 700: '#404040',
+              800: '#262626', 900: '#171717',
+            },
+            'accent': {
+              50: '#F0F7FF', 100: '#E0EFFF', 200: '#B9E0FF', 300: '#7CC5FF',
+              400: '#36A8FF', 500: '#0080DD', 600: '#0062B5',
+            },
+            'success': {
+              50: '#F0FDF4', 100: '#DCFCE7', 200: '#BBF7D0', 300: '#86EFAC',
+              400: '#4ADE80', 500: '#22C55E', 600: '#16A34A',
+            }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"Noto Sans SC"', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 4px 24px rgba(0, 0, 0, 0.06)',
+            'soft-lg': '0 8px 40px rgba(0, 0, 0, 0.08)',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out',
+            'slide-up': 'slideUp 0.6s ease-out',
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: linear-gradient(180deg, #FAFAFA 0%, #F5F5F5 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0080DD 0%, #0062B5 100%);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 12px rgba(0, 128, 221, 0.2);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 128, 221, 0.3); }
+    .input-field {
+      background: #FAFAFA;
+      border: 1.5px solid #E8E8E8;
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #0080DD;
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(0, 128, 221, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const API_BASE = 'http://localhost:3000/api';
+    
+    // ========== AI 记忆技巧卡片 ==========
+    function MemoryCard({ technique }) {
+      const [activeTab, setActiveTab] = useState('phonetic');
+      const [image, setImage] = useState(null);
+      const [audio, setAudio] = useState(null);
+      const [loadingImage, setLoadingImage] = useState(false);
+      const [loadingAudio, setLoadingAudio] = useState(false);
+      
+      // 加载图片
+      const handleLoadImage = async () => {
+        if (image) return; // 已加载
+        setLoadingImage(true);
+        try {
+          const res = await fetch(`${API_BASE}/ai/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              word: technique.word,
+              image_prompt: technique.image_prompt
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            setImage(result.image_url);
+          }
+        } catch (error) {
+          console.error('图片加载失败:', error);
+        } finally {
+          setLoadingImage(false);
+        }
+      };
+      
+      // 加载音频
+      const handlePlayAudio = async () => {
+        if (audio) {
+          // 播放已有音频
+          const audioEl = new Audio(audio.audio_url);
+          audioEl.play();
+          return;
+        }
+        setLoadingAudio(true);
+        try {
+          const res = await fetch(`${API_BASE}/ai/generate-audio`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              word: technique.word
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            setAudio(result);
+            const audioEl = new Audio(result.audio_url);
+            audioEl.play();
+          }
+        } catch (error) {
+          console.error('音频加载失败:', error);
+          alert('播放失败：' + error.message);
+        } finally {
+          setLoadingAudio(false);
+        }
+      };
+      
+      return (
+        <div className="card p-6 animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-2xl font-serif font-bold text-ink-900">{technique.word}</h3>
+            <span className="text-sm text-ink-500">{technique.phonetic}</span>
+          </div>
+          
+          {/* 标签页切换 */}
+          <div className="flex gap-2 mb-4 border-b border-ink-200">
+            {['phonetic', 'shape', 'example', 'story', 'fill'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium transition-all ${
+                  activeTab === tab
+                    ? 'text-accent-600 border-b-2 border-accent-600'
+                    : 'text-ink-500 hover:text-ink-700'
+                }`}
+              >
+                {tab === 'phonetic' && '🔊 发音'}
+                {tab === 'shape' && '✏️ 字形'}
+                {tab === 'example' && '📖 例句'}
+                {tab === 'story' && '📚 故事'}
+                {tab === 'fill' && '✍️ 挖空'}
+              </button>
+            ))}
+          </div>
+          
+          {/* 发音技巧 */}
+          {activeTab === 'phonetic' && (
+            <div className="space-y-3">
+              <div className="bg-accent-50 rounded-xl p-4">
+                <p className="text-sm text-accent-700 font-medium mb-1">🔊 发音技巧</p>
+                <p className="text-ink-800">{technique.audio_tip}</p>
+              </div>
+              <button
+                onClick={handlePlayAudio}
+                disabled={loadingAudio}
+                className="btn-primary px-6 py-2 rounded-xl text-white text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                {loadingAudio ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    🔊 {audio ? '再次播放' : '播放发音'}
+                  </>
+                )}
+              </button>
+              {audio?.warning && (
+                <p className="text-xs text-ink-400">{audio.warning}</p>
+              )}
+            </div>
+          )}
+          
+          {/* 字形记忆 */}
+          {activeTab === 'shape' && (
+            <div className="bg-ink-50 rounded-xl p-4">
+              <p className="text-sm text-ink-700 font-medium mb-2">✏️ 字形记忆法</p>
+              <p className="text-ink-800">{technique.shape_tip}</p>
+            </div>
+          )}
+          
+          {/* 例句 */}
+          {activeTab === 'example' && (
+            <div className="space-y-3">
+              {technique.example_sentences?.map((ex, i) => (
+                <div key={i} className="bg-ink-50 rounded-xl p-4">
+                  <p className="text-ink-800 font-medium mb-1">{ex.en}</p>
+                  <p className="text-ink-500 text-sm">{ex.zh}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* 记忆故事 */}
+          {activeTab === 'story' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-accent-50 to-success-50 rounded-xl p-4">
+                <p className="text-sm text-ink-700 font-medium mb-2">📚 记忆故事</p>
+                <p className="text-ink-800 leading-relaxed">{technique.memory_story}</p>
+              </div>
+              
+              {/* AI 绘画图片 */}
+              <div className="bg-ink-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-ink-500 font-medium">🎨 AI 单词图片</p>
+                  <button
+                    onClick={handleLoadImage}
+                    disabled={loadingImage || image}
+                    className="text-xs text-accent-600 hover:text-accent-700 disabled:opacity-50"
+                  >
+                    {loadingImage ? '生成中...' : image ? '✓ 已生成' : '生成图片'}
+                  </button>
+                </div>
+                {image ? (
+                  <img
+                    src={image}
+                    alt={technique.word}
+                    className="w-full h-64 object-cover rounded-xl shadow-soft"
+                  />
+                ) : loadingImage ? (
+                  <div className="w-full h-64 bg-ink-100 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-10 h-10 border-4 border-accent-200 border-t-accent-500 rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-xs text-ink-500">AI 正在绘制...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-64 bg-ink-100 rounded-xl flex items-center justify-center text-ink-400 text-sm">
+                    点击"生成图片"查看 AI 绘画
+                  </div>
+                )}
+                {technique.image_prompt && (
+                  <p className="text-xs text-ink-500 mt-2 italic">提示词：{technique.image_prompt}</p>
+                )}
+              </div>
+              
+              {technique.video_script && (
+                <div className="bg-ink-50 rounded-xl p-4">
+                  <p className="text-xs text-ink-500 mb-2">🎬 短视频脚本</p>
+                  <p className="text-sm text-ink-600">{technique.video_script}</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* 挖空练习 */}
+          {activeTab === 'fill' && technique.fill_blank_text && (
+            <div className="space-y-4">
+              <div className="bg-ink-50 rounded-xl p-4">
+                <p className="text-sm text-ink-700 font-medium mb-3">✍️ 挖空练习</p>
+                <p className="text-ink-800 leading-relaxed">{technique.fill_blank_text}</p>
+              </div>
+              <details className="bg-accent-50 rounded-xl p-4">
+                <summary className="text-sm text-accent-700 font-medium cursor-pointer">
+                  👀 查看答案
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {technique.fill_blank_answers?.map((ans, i) => (
+                    <span key={i} className="px-3 py-1 bg-success-100 text-success-700 rounded-lg text-sm font-medium">
+                      {ans}
+                    </span>
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // ========== 主应用 ==========
+    function App() {
+      const [inputText, setInputText] = useState('');
+      const [techniques, setTechniques] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [activeTab, setActiveTab] = useState('input');
+      
+      const handleGenerate = async () => {
+        if (!inputText.trim()) {
+          alert('请输入单词');
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          // 解析输入的单词
+          const lines = inputText.split(/[,，\n]/).filter(l => l.trim());
+          const words = lines.map(line => {
+            const match = line.match(/([a-zA-Z]+)\s*[-–—]?\s*([\u4e00-\u9fa5]+)/);
+            if (match) {
+              return { english: match[1].trim(), chinese: match[2].trim() };
+            }
+            return { english: line.trim(), chinese: '' };
+          }).filter(w => w.english);
+          
+          // 调用 AI API
+          const res = await fetch(`${API_BASE}/ai/memory-techniques`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ words })
+          });
+          
+          const result = await res.json();
+          
+          if (result.success) {
+            setTechniques(result.techniques);
+            setActiveTab('results');
+          } else {
+            alert('生成失败：' + result.error);
+          }
+        } catch (error) {
+          console.error('生成失败:', error);
+          alert('生成失败：' + error.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      return (
+        <div className="min-h-screen">
+          {/* 导航栏 */}
+          <nav className="glass-nav sticky top-0 z-50">
+            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🧠</span>
+                <span className="font-serif font-semibold text-ink-900">DictationPro · AI 单词记忆</span>
+              </div>
+            </div>
+          </nav>
+          
+          {/* 主内容区 */}
+          <div className="max-w-6xl mx-auto px-6 py-8">
+            {/* 标签页切换 */}
+            <div className="flex gap-1 bg-white/60 rounded-2xl p-1.5 w-fit mb-6">
+              <button
+                onClick={() => setActiveTab('input')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'input'
+                    ? 'bg-white text-accent-600 shadow-soft'
+                    : 'text-ink-500 hover:text-ink-700'
+                }`}
+              >
+                📝 输入单词
+              </button>
+              <button
+                onClick={() => setActiveTab('results')}
+                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'results'
+                    ? 'bg-white text-accent-600 shadow-soft'
+                    : 'text-ink-500 hover:text-ink-700'
+                }`}
+              >
+                💡 记忆技巧 ({techniques.length})
+              </button>
+            </div>
+            
+            {/* 输入页面 */}
+            {activeTab === 'input' && (
+              <div className="card p-8 animate-fade-in max-w-3xl mx-auto">
+                <h2 className="text-2xl font-serif font-semibold text-ink-900 mb-3">
+                  🤖 AI 单词记忆技巧生成器
+                </h2>
+                <p className="text-ink-500 mb-6">
+                  输入单词列表，AI 将为你生成发音技巧、字形记忆、例句、故事和挖空练习
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-ink-700 mb-2">
+                      单词列表（格式：英文 - 中文）
+                    </label>
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      className="input-field w-full px-4 py-3 rounded-xl text-sm min-h-[200px] resize-y"
+                      placeholder="apple-苹果&#10;banana-香蕉&#10;orange-橙子"
+                    />
+                  </div>
+                  
+                  <button
+                    onClick={handleGenerate}
+                    disabled={loading || !inputText.trim()}
+                    className="btn-primary w-full py-3 rounded-xl text-white font-medium disabled:opacity-50"
+                  >
+                    {loading ? '⏳ 生成中...' : '✨ 生成记忆技巧'}
+                  </button>
+                </div>
+                
+                {/* 功能说明 */}
+                <div className="mt-8 grid md:grid-cols-3 gap-4">
+                  <div className="bg-accent-50 rounded-xl p-4">
+                    <p className="text-2xl mb-2">🔊</p>
+                    <p className="text-sm font-medium text-ink-800 mb-1">发音技巧</p>
+                    <p className="text-xs text-ink-500">谐音联想，快速记忆</p>
+                  </div>
+                  <div className="bg-success-50 rounded-xl p-4">
+                    <p className="text-2xl mb-2">✏️</p>
+                    <p className="text-sm font-medium text-ink-800 mb-1">字形记忆</p>
+                    <p className="text-xs text-ink-500">拆字联想，形象记忆</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-xl p-4">
+                    <p className="text-2xl mb-2">📚</p>
+                    <p className="text-sm font-medium text-ink-800 mb-1">记忆故事</p>
+                    <p className="text-xs text-ink-500">连贯故事，深度记忆</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* 结果页面 */}
+            {activeTab === 'results' && (
+              <div className="space-y-6">
+                {techniques.length === 0 ? (
+                  <div className="card p-12 text-center">
+                    <span className="text-5xl mb-4 block">📭</span>
+                    <p className="text-ink-500">暂无记忆技巧</p>
+                    <button
+                      onClick={() => setActiveTab('input')}
+                      className="btn-primary mt-4 px-6 py-2 rounded-xl text-white text-sm"
+                    >
+                      去输入单词
+                    </button>
+                  </div>
+                ) : (
+                  techniques.map((tech, i) => (
+                    <MemoryCard key={i} technique={tech} />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

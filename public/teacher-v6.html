@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 教师端 v6.0</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'apple-gray': {
+              50: '#F9F9FB', 100: '#F2F2F5', 200: '#E5E5EA', 300: '#D1D1D6',
+              400: '#AEAEB2', 500: '#8E8E93', 600: '#636366', 700: '#48484A',
+              800: '#3A3A3C', 900: '#1C1C1E',
+            },
+            'apple-blue': {
+              50: '#E8F4FD', 100: '#D0E8FA', 200: '#A5D4F5', 300: '#6BB9EE',
+              400: '#2F9AE5', 500: '#007AFF', 600: '#0063D1', 700: '#0051AD',
+              800: '#00448E', 900: '#003A73',
+            },
+            'apple-green': {
+              50: '#E8F9ED', 100: '#D0F3DA', 200: '#A5E7B8', 300: '#6BD68F',
+              400: '#2FC263', 500: '#34C759', 600: '#28A745', 700: '#208C3A',
+              800: '#1A7230', 900: '#155C26',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          animation: { 'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)', 'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #F5F5F7 0%, #E8E8ED 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #007AFF 0%, #0063D1 100%);
+      transition: all 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4); }
+    .tab-active {
+      background: rgba(0, 122, 255, 0.1);
+      color: #007AFF;
+      border-bottom: 2px solid #007AFF;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    
+    // ========== API 工具函数 ==========
+    const API = {
+      baseUrl: '/api',
+      
+      request: async (endpoint, method = 'GET', data = null) => {
+        const options = {
+          method,
+          headers: { 'Content-Type': 'application/json' }
+        };
+        if (data) options.body = JSON.stringify(data);
+        
+        const response = await fetch(`${API.baseUrl}${endpoint}`, options);
+        return await response.json();
+      },
+      
+      getToken: () => localStorage.getItem('dictation_token'),
+      getUser: () => JSON.parse(localStorage.getItem('dictation_user') || '{}'),
+      
+      // 统计 API
+      getClassStats: async (className, dictationTitle = null) => {
+        const token = API.getToken();
+        const data = { token, className };
+        if (dictationTitle) data.dictationTitle = dictationTitle;
+        return API.request('/stats/class', 'POST', data);
+      },
+      
+      getDictationList: async (className) => {
+        const token = API.getToken();
+        return API.request('/stats/dictations', 'POST', { token, className });
+      }
+    };
+    
+    // ========== 图表组件 ==========
+    const DistributionChart = ({ stats }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      
+      useEffect(() => {
+        if (!canvasRef.current || !stats?.score_distribution) return;
+        
+        const ctx = canvasRef.current.getContext('2d');
+        
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+        
+        const dist = stats.score_distribution;
+        
+        chartRef.current = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['90-100 分', '80-89 分', '70-79 分', '60-69 分', '60 分以下'],
+            datasets: [{
+              data: [dist['90-100']||0, dist['80-89']||0, dist['70-79']||0, dist['60-69']||0, dist['0-59']||0],
+              backgroundColor: ['#34C759', '#007AFF', '#FF9500', '#FF3B30', '#8E8E93'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+        
+        return () => {
+          if (chartRef.current) chartRef.current.destroy();
+        };
+      }, [stats]);
+      
+      if (!stats?.score_distribution) {
+        return (
+          <div className="h-64 flex items-center justify-center text-gray-400">
+            暂无数据
+          </div>
+        );
+      }
+      
+      return (
+        <div className="h-64">
+          <canvas ref={canvasRef}></canvas>
+        </div>
+      );
+    };
+    
+    const RankingChart = ({ stats }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      
+      useEffect(() => {
+        if (!canvasRef.current || !stats?.student_ranking?.length) return;
+        
+        const ctx = canvasRef.current.getContext('2d');
+        
+        if (chartRef.current) {
+          chartRef.current.destroy();
+        }
+        
+        const top10 = stats.student_ranking.slice(0, 10);
+        
+        chartRef.current = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: top10.map(s => s.username),
+            datasets: [{
+              label: '平均分',
+              data: top10.map(s => s.average_score),
+              backgroundColor: top10.map(s => 
+                s.average_score >= 90 ? '#34C759' :
+                s.average_score >= 80 ? '#007AFF' :
+                s.average_score >= 70 ? '#FF9500' : '#FF3B30'
+              ),
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.05)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+        
+        return () => {
+          if (chartRef.current) chartRef.current.destroy();
+        };
+      }, [stats]);
+      
+      if (!stats?.student_ranking?.length) {
+        return (
+          <div className="h-64 flex items-center justify-center text-gray-400">
+            暂无数据
+          </div>
+        );
+      }
+      
+      return (
+        <div className="h-64">
+          <canvas ref={canvasRef}></canvas>
+        </div>
+      );
+    };
+    
+    // ========== 主应用组件 ==========
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [user, setUser] = useState(null);
+      const [classStats, setClassStats] = useState(null);
+      const [selectedClass, setSelectedClass] = useState('');
+      const [selectedDictation, setSelectedDictation] = useState('');
+      const [dictations, setDictations] = useState([]);
+      const [loading, setLoading] = useState(true);
+      
+      useEffect(() => {
+        const userData = API.getUser();
+        if (!userData.username || userData.role !== 'teacher') {
+          window.location.href = '/login-v5.html';
+          return;
+        }
+        setUser(userData);
+        setSelectedClass(userData.class_name || '');
+        loadClassStats(userData.class_name || '');
+      }, []);
+      
+      const loadClassStats = async (className, dictationTitle = null) => {
+        if (!className) return;
+        
+        setLoading(true);
+        try {
+          const statsRes = await API.getClassStats(className, dictationTitle);
+          if (statsRes.success) {
+            setClassStats(statsRes.stats);
+            
+            // 加载听写列表
+            const dictRes = await API.getDictationList(className);
+            if (dictRes.success) {
+              setDictations(dictRes.dictations);
+            }
+          }
+        } catch (err) {
+          console.error('加载统计失败:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      const handleClassChange = (e) => {
+        const className = e.target.value;
+        setSelectedClass(className);
+        loadClassStats(className);
+      };
+      
+      const handleDictationChange = (e) => {
+        const title = e.target.value;
+        setSelectedDictation(title);
+        loadClassStats(selectedClass, title || null);
+      };
+      
+      const handleLogout = () => {
+        localStorage.removeItem('dictation_token');
+        localStorage.removeItem('dictation_user');
+        window.location.href = '/login-v5.html';
+      };
+      
+      if (loading && !classStats) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-500">加载中...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen">
+          {/* 顶部导航栏 */}
+          <nav className="glass-nav sticky top-0 z-50">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👨‍🏫</span>
+                <span className="font-semibold text-gray-800">DictationPro AI - 教师端</span>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-600">
+                  👨‍🏫 {user?.display_name || user?.username}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="btn-secondary px-4 py-2 rounded-xl text-sm"
+                >
+                  登出
+                </button>
+              </div>
+            </div>
+          </nav>
+          
+          {/* 标签页切换 */}
+          <div className="max-w-6xl mx-auto px-4 mt-6">
+            <div className="flex gap-1 bg-white/50 rounded-2xl p-1 w-fit">
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'dashboard' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📊 班级统计
+              </button>
+              <button
+                onClick={() => setActiveTab('students')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'students' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                👨‍🎓 学生排名
+              </button>
+              <button
+                onClick={() => setActiveTab('create')}
+                className={`px-6 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === 'create' ? 'tab-active' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                ➕ 创建听写
+              </button>
+            </div>
+          </div>
+          
+          {/* 筛选器 */}
+          <div className="max-w-6xl mx-auto px-4 mt-6">
+            <div className="card p-4 flex flex-wrap gap-4 items-center">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">班级</label>
+                <select 
+                  value={selectedClass}
+                  onChange={handleClassChange}
+                  className="input-field px-4 py-2 rounded-xl text-sm min-w-[200px]"
+                >
+                  <option value="">选择班级</option>
+                  <option value="25 级 IB IELTS 听力">25 级 IB IELTS 听力</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">听写任务</label>
+                <select 
+                  value={selectedDictation}
+                  onChange={handleDictationChange}
+                  className="input-field px-4 py-2 rounded-xl text-sm min-w-[200px]"
+                >
+                  <option value="">全部听写</option>
+                  {dictations.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* 主内容区 */}
+          <div className="max-w-6xl mx-auto px-4 py-6">
+            {/* 班级统计 */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* 统计概览 */}
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">班级人数</p>
+                    <p className="text-3xl font-bold text-gray-800">{classStats?.total_students || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">班级平均分</p>
+                    <p className="text-3xl font-bold text-blue-600">{classStats?.average_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">最高分</p>
+                    <p className="text-3xl font-bold text-green-600">{classStats?.highest_score || 0}</p>
+                  </div>
+                  <div className="card p-6">
+                    <p className="text-sm text-gray-500 mb-1">最低分</p>
+                    <p className="text-3xl font-bold text-orange-600">{classStats?.lowest_score || 0}</p>
+                  </div>
+                </div>
+                
+                {/* 分数分布图 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">📊 分数分布</h3>
+                  <DistributionChart stats={classStats} />
+                </div>
+              </div>
+            )}
+            
+            {/* 学生排名 */}
+            {activeTab === 'students' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* 排名图表 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">🏆 学生排名 (Top 10)</h3>
+                  <RankingChart stats={classStats} />
+                </div>
+                
+                {/* 排名表格 */}
+                <div className="card p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">完整排名</h3>
+                  
+                  {classStats?.student_ranking?.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">排名</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">学生</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">平均分</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">听写次数</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classStats.student_ranking.map((student, index) => (
+                            <tr key={student.username} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-3 px-4">
+                                <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                                  index === 0 ? 'bg-yellow-100 text-yellow-600' :
+                                  index === 1 ? 'bg-gray-100 text-gray-600' :
+                                  index === 2 ? 'bg-orange-100 text-orange-600' :
+                                  'bg-gray-50 text-gray-500'
+                                }`}>
+                                  {index + 1}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-medium text-gray-800">{student.username}</td>
+                              <td className="py-3 px-4">
+                                <span className={`font-semibold ${
+                                  student.average_score >= 90 ? 'text-green-600' :
+                                  student.average_score >= 80 ? 'text-blue-600' :
+                                  student.average_score >= 70 ? 'text-orange-600' : 'text-red-600'
+                                }`}>
+                                  {student.average_score}分
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-gray-500">{student.dictation_count}次</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-400">
+                      暂无学生数据
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* 创建听写 */}
+            {activeTab === 'create' && (
+              <div className="card p-8 animate-fade-in">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">➕ 创建新听写</h2>
+                <p className="text-gray-500 mb-6">使用 OCR 识别或手动输入创建听写任务</p>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      听写标题
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field w-full px-4 py-3 rounded-xl"
+                      placeholder="例如：Unit 1 Vocabulary"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      选择班级
+                    </label>
+                    <select className="input-field w-full px-4 py-3 rounded-xl">
+                      <option>25 级 IB IELTS 听力</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      词表输入
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+                      <span className="text-4xl mb-4 block">📸</span>
+                      <p className="text-gray-600 font-medium mb-2">拖拽截图到此处，或点击上传</p>
+                      <p className="text-sm text-gray-400">支持 OCR 识别表格图片</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-4 pt-4">
+                    <button className="btn-primary px-8 py-3 rounded-xl text-white font-medium">
+                      创建听写
+                    </button>
+                    <button className="btn-secondary px-8 py-3 rounded-xl font-medium">
+                      取消
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

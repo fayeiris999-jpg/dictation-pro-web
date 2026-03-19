@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 登录</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'apple-gray': {
+              50: '#F9F9FB', 100: '#F2F2F5', 200: '#E5E5EA', 300: '#D1D1D6',
+              400: '#AEAEB2', 500: '#8E8E93', 600: '#636366', 700: '#48484A',
+              800: '#3A3A3C', 900: '#1C1C1E',
+            },
+            'apple-blue': {
+              50: '#E8F4FD', 100: '#D0E8FA', 200: '#A5D4F5', 300: '#6BB9EE',
+              400: '#2F9AE5', 500: '#007AFF', 600: '#0063D1', 700: '#0051AD',
+              800: '#00448E', 900: '#003A73',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          animation: { 'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)', 'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    }
+    .input-field {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #007AFF;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #007AFF 0%, #0063D1 100%);
+      transition: all 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 1); border-color: rgba(0, 0, 0, 0.15); }
+    .error-msg {
+      background: rgba(255, 59, 48, 0.1);
+      color: #FF3B30;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 59, 48, 0.2);
+    }
+    .success-msg {
+      background: rgba(52, 199, 89, 0.1);
+      color: #34C759;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(52, 199, 89, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    function App() {
+      const [isLogin, setIsLogin] = useState(true);
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [displayName, setDisplayName] = useState('');
+      const [role, setRole] = useState('student');
+      const [className, setClassName] = useState('');
+      const [error, setError] = useState('');
+      const [success, setSuccess] = useState('');
+      const [loading, setLoading] = useState(false);
+      
+      // 检查是否已登录
+      useEffect(() => {
+        const token = localStorage.getItem('dictation_token');
+        const user = localStorage.getItem('dictation_user');
+        if (token && user) {
+          const userData = JSON.parse(user);
+          if (userData.role === 'teacher') {
+            window.location.href = '/teacher-v5.html';
+          } else {
+            window.location.href = '/student-v5.html?type=standard';
+          }
+        }
+      }, []);
+      
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        setLoading(true);
+        
+        try {
+          const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+          const payload = isLogin 
+            ? { username, password }
+            : { username, password, role, displayName: displayName || username, className };
+          
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            // 保存 Token 和用户信息
+            localStorage.setItem('dictation_token', data.token);
+            localStorage.setItem('dictation_user', JSON.stringify({
+              user_id: data.user_id,
+              username: data.username,
+              role: data.role,
+              display_name: data.display_name,
+              class_name: data.class_name
+            }));
+            
+            setSuccess(isLogin ? '登录成功！正在跳转...' : '注册成功！正在跳转...');
+            
+            // 跳转
+            setTimeout(() => {
+              if (data.role === 'teacher') {
+                window.location.href = '/teacher-v5.html';
+              } else {
+                window.location.href = '/student-v5.html?type=standard';
+              }
+            }, 1000);
+          } else {
+            setError(data.error || '操作失败，请重试');
+          }
+        } catch (err) {
+          setError('网络错误，请检查连接');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      return (
+        <div className="w-full max-w-md px-6">
+          <div className="glass-card p-8 animate-fade-in">
+            {/* Logo */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <span className="text-3xl">🎧</span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-800">DictationPro AI</h1>
+              <p className="text-gray-500 mt-1">智能听写系统</p>
+            </div>
+            
+            {/* 切换登录/注册 */}
+            <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => { setIsLogin(true); setError(''); setSuccess(''); }}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  isLogin 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                登录
+              </button>
+              <button
+                onClick={() => { setIsLogin(false); setError(''); setSuccess(''); }}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  !isLogin 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                注册
+              </button>
+            </div>
+            
+            {/* 错误/成功提示 */}
+            {error && <div className="error-msg mb-4 text-sm">{error}</div>}
+            {success && <div className="success-msg mb-4 text-sm">{success}</div>}
+            
+            {/* 表单 */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  用户名
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="input-field w-full px-4 py-3 rounded-xl text-gray-800 placeholder-gray-400"
+                  placeholder="请输入用户名"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  密码
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field w-full px-4 py-3 rounded-xl text-gray-800 placeholder-gray-400"
+                  placeholder="请输入密码"
+                  required
+                  minLength={6}
+                />
+              </div>
+              
+              {!isLogin && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      显示名称
+                    </label>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="input-field w-full px-4 py-3 rounded-xl text-gray-800 placeholder-gray-400"
+                      placeholder="请输入显示名称（可选）"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      角色
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setRole('student')}
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
+                          role === 'student'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'btn-secondary text-gray-600'
+                        }`}
+                      >
+                        👨‍🎓 学生
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRole('teacher')}
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
+                          role === 'teacher'
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'btn-secondary text-gray-600'
+                        }`}
+                      >
+                        👨‍🏫 教师
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {role === 'student' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        班级
+                      </label>
+                      <input
+                        type="text"
+                        value={className}
+                        onChange={(e) => setClassName(e.target.value)}
+                        className="input-field w-full px-4 py-3 rounded-xl text-gray-800 placeholder-gray-400"
+                        placeholder="例如：25 级 IB IELTS 听力"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+              
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full py-3.5 rounded-xl text-white font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? '处理中...' : (isLogin ? '登录' : '注册')}
+              </button>
+            </form>
+            
+            {/* 快速入口 */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <p className="text-center text-sm text-gray-500 mb-3">
+                或者继续使用 without 登录
+              </p>
+              <div className="flex gap-3">
+                <a
+                  href="/teacher-v5.html"
+                  className="flex-1 btn-secondary py-2.5 rounded-xl text-sm font-medium text-center text-gray-600"
+                >
+                  👨‍🏫 教师端
+                </a>
+                <a
+                  href="/student-v5.html?type=standard"
+                  className="flex-1 btn-secondary py-2.5 rounded-xl text-sm font-medium text-center text-gray-600"
+                >
+                  👨‍🎓 学生端
+                </a>
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <p className="text-center text-white/80 text-sm mt-6">
+            © 2026 DictationPro AI · 让听写更高效
+          </p>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

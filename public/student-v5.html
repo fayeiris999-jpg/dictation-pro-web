@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DictationPro - 学生端 v5.0</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'apple-gray': {
+              50: '#F9F9FB', 100: '#F2F2F5', 200: '#E5E5EA', 300: '#D1D1D6',
+              400: '#AEAEB2', 500: '#8E8E93', 600: '#636366', 700: '#48484A',
+              800: '#3A3A3C', 900: '#1C1C1E',
+            },
+            'apple-blue': {
+              50: '#E8F4FD', 100: '#D0E8FA', 200: '#A5D4F5', 300: '#6BB9EE',
+              400: '#2F9AE5', 500: '#007AFF', 600: '#0063D1', 700: '#0051AD',
+              800: '#00448E', 900: '#003A73',
+            },
+            'apple-green': {
+              50: '#E8F9ED', 100: '#D0F3DA', 200: '#A5E7B8', 300: '#6BD68F',
+              400: '#2FC263', 500: '#34C759', 600: '#28A745', 700: '#208C3A',
+              800: '#1A7230', 900: '#155C26',
+            },
+            'apple-purple': {
+              50: '#F5F3FF', 100: '#EDE9FE', 200: '#DDD6FE', 300: '#C4B5FD',
+              400: '#A78BFA', 500: '#8B5CF6', 600: '#7C3AED', 700: '#6D28D9',
+              800: '#5B21B6', 900: '#4C1D95',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          },
+          borderRadius: { 'apple': '12px', 'apple-lg': '20px', 'apple-xl': '28px' },
+          boxShadow: { 'apple-sm': '0 1px 2px rgba(0, 0, 0, 0.04)', 'apple': '0 2px 8px rgba(0, 0, 0, 0.08)', 'apple-md': '0 4px 16px rgba(0, 0, 0, 0.12)', 'apple-lg': '0 8px 32px rgba(0, 0, 0, 0.16)' },
+          animation: { 'fade-in': 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)', 'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+          },
+        },
+      },
+    }
+  </script>
+  
+  <style>
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #F5F5F7 0%, #E8E8ED 100%);
+      min-height: 100vh;
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #007AFF 0%, #0063D1 100%);
+      transition: all 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4); }
+    .btn-success {
+      background: linear-gradient(135deg, #34C759 0%, #28A745 100%);
+      transition: all 0.3s;
+    }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 0 24px rgba(52, 199, 89, 0.5); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 1); border-color: rgba(0, 0, 0, 0.15); }
+    .input-field {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(0, 0, 0, 0.08);
+      transition: all 0.2s;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #007AFF;
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.12);
+    }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const API_BASE = 'http://localhost:3000/api';
+    
+    // ========== 导航栏 ==========
+    function Navbar({ studentName, setStudentName, dictationType }) {
+      return (
+        <nav className="glass-nav sticky top-0 z-40">
+          <div className="max-w-5xl mx-auto px-4 py-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-apple-green-500 to-apple-green-600 flex items-center justify-center">
+                  <span className="text-xl">👨‍🎓</span>
+                </div>
+                <div>
+                  <h1 className="text-base font-semibold text-apple-gray-900">DictationPro</h1>
+                  <p className="text-xs text-apple-gray-500 -mt-0.5">学生端 v5.0</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="输入姓名"
+                  className="input-field px-3 py-2 rounded-apple text-sm"
+                />
+                <span className={`px-3 py-1 rounded-apple text-xs font-medium ${
+                  dictationType === 'ielts' ? 'bg-apple-purple-100 text-apple-purple-800' : 'bg-apple-blue-100 text-apple-blue-800'
+                }`}>
+                  {dictationType === 'ielts' ? '📝 雅思' : '📖 普通'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </nav>
+      );
+    }
+    
+    // ========== 听写选择 ==========
+    function DictationSelector({ onSelect }) {
+      const [dictations, setDictations] = useState([]);
+      
+      useEffect(() => {
+        const saved = JSON.parse(localStorage.getItem('available_dictations') || '[]');
+        setDictations(saved);
+      }, []);
+      
+      return (
+        <div className="card p-6 animate-fade-in">
+          <h3 className="text-lg font-semibold text-apple-gray-900 mb-4">📚 选择听写任务</h3>
+          {dictations.length === 0 ? (
+            <div className="text-center py-8">
+              <span className="text-4xl mb-3 block">📭</span>
+              <p className="text-apple-gray-600 text-sm">暂无可用听写任务</p>
+              <p className="text-apple-gray-500 text-xs mt-1">请老师先创建听写内容</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dictations.map(d => (
+                <div
+                  key={d.id}
+                  onClick={() => onSelect(d)}
+                  className="p-4 rounded-apple-lg border border-apple-gray-200 hover:border-apple-blue-400 hover:bg-apple-blue-50 cursor-pointer transition-all"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-apple-gray-900">{d.title}</h4>
+                      <p className="text-xs text-apple-gray-500 mt-1">
+                        {d.classLabel} · {d.words.length}个单词
+                      </p>
+                    </div>
+                    <span className="text-apple-blue-600 text-sm font-medium">开始 →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // ========== 听写执行页面 ==========
+    function DictationPlayer({ dictation, studentName, onComplete, onBack }) {
+      const [currentStep, setCurrentStep] = useState('ready'); // ready, playing, answering, result
+      const [audioUrl, setAudioUrl] = useState(null);
+      const [studentAnswer, setStudentAnswer] = useState('');
+      const [report, setReport] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const audioRef = useRef(null);
+      
+      // 加载或生成音频
+      useEffect(() => {
+        const loadAudio = async () => {
+          if (dictation.audioUrl) {
+            setAudioUrl(dictation.audioUrl);
+          } else {
+            // 需要生成音频
+            setLoading(true);
+            try {
+              const response = await fetch(`${API_BASE}/audio/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  words: dictation.words,
+                  ...dictation.audioSettings
+                })
+              });
+              const result = await response.json();
+              if (result.success) {
+                setAudioUrl(result.audioUrl);
+              }
+            } catch (error) {
+              console.error('音频加载失败:', error);
+            }
+            setLoading(false);
+          }
+        };
+        loadAudio();
+      }, [dictation]);
+      
+      // 提交批改
+      const handleSubmit = async () => {
+        if (!studentAnswer.trim()) {
+          alert('⚠️ 请输入你的答案');
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          const standardAnswer = dictation.words.map(w => w.english).join(' ');
+          
+          const response = await fetch(`${API_BASE}/correct`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentAnswer,
+              standardAnswer,
+              tolerance: 0.1
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            setReport(result.report);
+            setCurrentStep('result');
+            
+            // 同步到飞书
+            await syncToFeishu(result.report);
+          } else {
+            alert(`❌ 批改失败：${result.error}`);
+          }
+        } catch (error) {
+          console.error('批改失败:', error);
+          alert('❌ 无法连接批改服务');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      // 同步到飞书
+      const syncToFeishu = async (report) => {
+        try {
+          await fetch(`${API_BASE}/feishu/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentName,
+              dictationDate: new Date().toISOString(),
+              className: dictation.classLabel,
+              content: dictation.title,
+              score: report.score,
+              correctRate: report.correctRate,
+              mistakes: report.corrections.map(c => c.expected)
+            })
+          });
+        } catch (error) {
+          console.error('飞书同步失败:', error);
+        }
+      };
+      
+      const handleRestart = () => {
+        setStudentAnswer('');
+        setReport(null);
+        setCurrentStep('ready');
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+        }
+      };
+      
+      if (loading && !audioUrl) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-apple-blue-200 border-t-apple-blue-500 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-apple-gray-700 font-medium">正在加载音频...</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="min-h-screen p-6 animate-fade-in">
+          <div className="max-w-3xl mx-auto">
+            <button onClick={onBack} className="text-apple-gray-600 hover:text-apple-gray-900 mb-4 text-sm">← 返回</button>
+            
+            <div className="card p-6 mb-6">
+              <h2 className="text-xl font-semibold text-apple-gray-900 mb-2">{dictation.title}</h2>
+              <p className="text-apple-gray-500 text-sm">{dictation.classLabel} · {dictation.words.length}个单词</p>
+            </div>
+            
+            {currentStep === 'ready' && (
+              <div className="card p-8 text-center animate-fade-in">
+                <div className="w-20 h-20 bg-apple-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🎧</span>
+                </div>
+                <h3 className="text-lg font-semibold text-apple-gray-900 mb-2">准备开始听写</h3>
+                <p className="text-apple-gray-600 text-sm mb-6">
+                  共 {dictation.words.length} 个单词 · 预计时长 {dictation.audioDuration || Math.round(dictation.words.length * 3)}秒
+                </p>
+                
+                {audioUrl && (
+                  <audio ref={audioRef} controls src={audioUrl} className="mb-6" />
+                )}
+                
+                <button
+                  onClick={() => setCurrentStep('answering')}
+                  className="btn-primary px-8 py-3 rounded-apple text-white font-medium"
+                >
+                  开始听写
+                </button>
+              </div>
+            )}
+            
+            {currentStep === 'answering' && (
+              <div className="card p-6 animate-fade-in">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-base font-semibold text-apple-gray-900">✏️ 输入答案</h3>
+                  {audioUrl && (
+                    <audio controls src={audioUrl} className="h-10" />
+                  )}
+                </div>
+                
+                <textarea
+                  value={studentAnswer}
+                  onChange={(e) => setStudentAnswer(e.target.value)}
+                  placeholder="输入你听到的单词，用空格或逗号分隔..."
+                  className="input-field w-full p-4 rounded-apple-lg text-sm min-h-[200px] resize-y font-mono"
+                />
+                
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => setCurrentStep('ready')} className="btn-secondary flex-1 py-3 rounded-apple font-medium">
+                    返回
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || !studentAnswer.trim()}
+                    className="btn-success flex-1 py-3 rounded-apple text-white font-medium disabled:opacity-50"
+                  >
+                    {loading ? '⏳ 提交中...' : '✅ 提交答案'}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {currentStep === 'result' && report && (
+              <div className="animate-fade-in">
+                <div className={`card p-8 text-center mb-6 ${
+                  report.score >= 90 ? 'bg-apple-green-50' :
+                  report.score >= 70 ? 'bg-apple-blue-50' :
+                  'bg-apple-gray-50'
+                }`}>
+                  <div className="text-5xl mb-3">
+                    {report.score >= 90 ? '🎉' : report.score >= 70 ? '👍' : '💪'}
+                  </div>
+                  <h2 className="text-3xl font-bold text-apple-gray-900 mb-2">{report.score}分</h2>
+                  <p className="text-apple-gray-600 mb-4">正确率：{report.correctRate}%</p>
+                  <p className="text-lg font-medium">{report.feedback}</p>
+                </div>
+                
+                <div className="card p-6 mb-6">
+                  <h3 className="text-base font-semibold text-apple-gray-900 mb-4">📊 详细结果</h3>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-4 bg-apple-gray-50 rounded-apple-lg">
+                      <p className="text-2xl font-bold text-apple-gray-900">{report.totalWords}</p>
+                      <p className="text-xs text-apple-gray-600 mt-1">总单词数</p>
+                    </div>
+                    <div className="p-4 bg-apple-green-50 rounded-apple-lg">
+                      <p className="text-2xl font-bold text-apple-green-700">{report.correctCount}</p>
+                      <p className="text-xs text-apple-green-600 mt-1">正确</p>
+                    </div>
+                    <div className="p-4 bg-apple-red-50 rounded-apple-lg">
+                      <p className="text-2xl font-bold text-apple-red-700">{report.errorCount}</p>
+                      <p className="text-xs text-apple-red-600 mt-1">错误</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {report.corrections.length > 0 && (
+                  <div className="card p-6 mb-6">
+                    <h3 className="text-base font-semibold text-apple-gray-900 mb-4">❌ 错题本</h3>
+                    <div className="space-y-2">
+                      {report.corrections.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-apple-gray-50 rounded-apple">
+                          <div>
+                            <span className="text-apple-red-600 font-mono">{c.actual || '(未填写)'}</span>
+                            <span className="text-apple-gray-400 mx-2">→</span>
+                            <span className="text-apple-green-600 font-mono font-medium">{c.expected}</span>
+                          </div>
+                          <span className="text-xs text-apple-gray-500">
+                            {c.type === 'spelling_error' ? '拼写错误' :
+                             c.type === 'case_error' ? '大小写错误' :
+                             c.type === 'order_error' ? '词序错误' : '遗漏'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-3">
+                  <button onClick={handleRestart} className="btn-secondary flex-1 py-3 rounded-apple font-medium">
+                    🔄 重新听写
+                  </button>
+                  <button onClick={onComplete} className="btn-primary flex-1 py-3 rounded-apple text-white font-medium">
+                    完成
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // ========== 主应用 ==========
+    function App() {
+      const [studentName, setStudentName] = useState('');
+      const [selectedDictation, setSelectedDictation] = useState(null);
+      const dictationType = new URLSearchParams(window.location.search).get('type') || 'standard';
+      
+      useEffect(() => {
+        const saved = localStorage.getItem('studentName');
+        if (saved) setStudentName(saved);
+      }, []);
+      
+      useEffect(() => {
+        if (studentName) localStorage.setItem('studentName', studentName);
+      }, [studentName]);
+      
+      return (
+        <div>
+          <Navbar studentName={studentName} setStudentName={setStudentName} dictationType={dictationType} />
+          <div className="max-w-5xl mx-auto p-6">
+            {!selectedDictation ? (
+              <DictationSelector onSelect={setSelectedDictation} />
+            ) : (
+              <DictationPlayer
+                dictation={selectedDictation}
+                studentName={studentName}
+                onComplete={() => setSelectedDictation(null)}
+                onBack={() => setSelectedDictation(null)}
+              />
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
