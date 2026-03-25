@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: dictation-pro-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    region: virginia
